@@ -105,6 +105,8 @@
 - Trigger sobre las líneas: cuenta imputable, activa y con las dimensiones que exigen sus flags.
 - Trigger sobre el documento: periodo abierto, accounting_date dentro del periodo, tipo de documento permitido en el periodo 13. Es la red bajo los bloqueos de la acción Contabilizar.
 - Bitácora de cambios de datos (maestros, borradores, parámetros) con trigger genérico: valor anterior y nuevo en jsonb, usuario tomado de set_config. Aprobaciones, cierres y reaperturas se registran como eventos explícitos en la misma tabla.
+- audit_log: pyme_app solo SELECT. Escriben dos funciones SECURITY DEFINER de pyme_owner: audit_log_capture (trigger AFTER ROW en cada tabla de negocio, salvo excepciones declaradas en el test de catálogo; un UPDATE sin cambios no deja fila) y audit_log_event (eventos, EXECUTE solo para pyme_app). Sin app.user_id fallan con 42501. Políticas de INSERT y SELECT para pyme_owner atadas al contexto de empresa (SELECT porque INSERT ... RETURNING lo exige) y ninguna de UPDATE o DELETE: con FORCE ni el dueño modifica filas. La aplicación no puede fabricar filas de cambio de datos; sí puede registrar eventos y fijar el usuario, porque app.user_id lo pone ella. Encadenamiento por hash pendiente, con un job de sellado.
+- Funciones SECURITY DEFINER con search_path fijo y sin EXECUTE para PUBLIC, exigido por test de catálogo. Toda función se crea con DROP FUNCTION IF EXISTS y CREATE FUNCTION, nunca OR REPLACE: migrate:fresh no borra funciones y OR REPLACE conserva el ACL anterior, lo que escondía un REVOKE faltante.
 
 Dónde se hace cumplir cada regla:
 

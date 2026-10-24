@@ -43,9 +43,12 @@ return new class extends Migration
         // The counter is born at 1 and only moves forward one by one. The trigger enforces it even against a direct
         // write, so that a gap or a repeated number cannot be stored. The error is a check_violation (23514) that
         // names the table. A new row must start at 1 because the first number is handed out in the same statement
-        // that creates the counter (INSERT ... ON CONFLICT DO UPDATE).
+        // that creates the counter (INSERT ... ON CONFLICT DO UPDATE). migrate:fresh does not drop functions, so the
+        // function is dropped first (no CASCADE: the table and its trigger are already gone) and its definition always
+        // comes from this migration.
+        DB::statement('DROP FUNCTION IF EXISTS document_counter_check_increment()');
         DB::statement(<<<'SQL'
-            CREATE OR REPLACE FUNCTION document_counter_check_increment() RETURNS trigger
+            CREATE FUNCTION document_counter_check_increment() RETURNS trigger
             LANGUAGE plpgsql AS $$
             BEGIN
                 IF TG_OP = 'INSERT' AND NEW.last_number <> 1 THEN

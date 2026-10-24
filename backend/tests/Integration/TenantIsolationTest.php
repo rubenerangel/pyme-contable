@@ -15,6 +15,14 @@ uses(RefreshDatabaseAsOwner::class);
 // active company. Adding a table here is a design decision, see docs/decisiones.md, Multi-tenant.
 const GLOBAL_TABLES_WITH_COMPANY_ID = ['company_user'];
 
+// Tables with a company_id column that carry no audit trigger on purpose: audit_log is the ledger itself,
+// document_counter changes on every posting (the document will be audited) and tenant_probe is the RLS-only probe
+// (audit_probe is the one that carries the triggers).
+const AUDIT_EXEMPT_TABLES = ['audit_log', 'document_counter', 'tenant_probe'];
+
+// pg_trigger.tgtype bits: INSERT 4, DELETE 8, UPDATE 16.
+const AUDIT_EVENTS_ALL = 4 + 8 + 16;
+
 /**
  * Sets (or clears, with null) the company context of the connection using raw SQL.
  */
@@ -214,5 +222,49 @@ it('every public table with a company_id column also has it NOT NULL with a DEFA
         array_fill_keys(array_keys($actual), [true, true]),
         $actual,
         'Table → [company_id NOT NULL, DEFAULT reads current_setting(app.company_id)] for every tenant table (second barrier).',
+    );
+});
+
+it('every public tenant table, except the global and the exempt ones, has AFTER ROW triggers that run audit_log_capture for INSERT, UPDATE and DELETE', function (): void {
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select c.relname,
+               coalesce(
+                   bit_or(t.tgtype & 28) filter (
+                       where (t.tgtype & 1) = 1      -- FOR EACH ROW
+                         and (t.tgtype & 2) = 0      -- not BEFORE
+                         and (t.tgtype & 64) = 0     -- not INSTEAD OF
+                         and p.proname = 'audit_log_capture'
+                         and p.pronamespace = 'public'::regnamespace
+                   ),
+                   0
+               )::int as events
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        left join pg_trigger t on t.tgrelid = c.oid and not t.tgisinternal
+        left join pg_proc p on p.oid = t.tgfoid
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and exists (
+              select 1 from pg_attribute a
+              where a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
+          )
+        group by c.relname
+        order by c.relname
+        SQL) as $row) {
+        if (in_array($row->relname, [...GLOBAL_TABLES_WITH_COMPANY_ID, ...AUDIT_EXEMPT_TABLES], true)) {
+            continue;
+        }
+
+        $actual[$row->relname] = (int) $row->events;
+    }
+
+    // Guard against passing on an empty result: the real audited tables and the probe must be covered.
+    expect($actual)->toHaveKeys(['audit_probe', 'document_type', 'period']);
+
+    $this->assertSame(
+        array_fill_keys(array_keys($actual), AUDIT_EVENTS_ALL),
+        $actual,
+        'Table → events covered by AFTER ROW triggers on audit_log_capture (INSERT 4 + DELETE 8 + UPDATE 16 = 28). A tenant table must cover all three.',
     );
 });
