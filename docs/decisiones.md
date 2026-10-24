@@ -102,6 +102,8 @@
 - Dos usuarios de base de datos: el dueño de las tablas, solo para migraciones, y el de la aplicación, que no es dueño, no tiene BYPASSRLS ni UPDATE o DELETE sobre asientos, líneas y bitácora. Tablas con FORCE ROW LEVEL SECURITY.
 - Las migraciones corren con la conexión pgsql_owner y la aplicación con pgsql (pyme_app). Cada migración da GRANT explícito a pyme_app, solo los privilegios que la tabla necesita. Nunca default privileges ni TRUNCATE, REFERENCES o TRIGGER para la aplicación.
 - Propuesta para producción: solo el job de migraciones recibe la credencial del dueño. Los procesos web y worker no la tienen. En desarrollo, compose la pasa a php y worker por comodidad.
+- Sanctum solo en modo SPA con cookie de sesión: sin tabla personal_access_tokens, y AppServiceProvider anula la lectura de tokens, así que un Bearer da 401. La API vive bajo /api/v1 con statefulApi().
+- POST /api/v1/active-company valida la membresía (acción SwitchActiveCompany) y guarda active_company_id en la sesión. Sin membresía o con empresa inexistente responde el mismo 403. El middleware company.context (SetCompanyContext) responde 409 si no hay empresa activa, revalida la membresía en cada request (403 y borra la clave si se revocó) y fija el contexto con enter() y leave() en un finally.
 - Contexto de empresa con set_config al inicio de cada request. En jobs, el company_id viaja en el payload y el contexto se fija y se limpia por job, porque el worker es un proceso largo. Si algún día hay pooler en modo transacción u Octane, el contexto pasa a ser transaccional.
 - Claves únicas y FK compuestas con company_id.
 - Pruebas automáticas de fuga entre empresas en la API y en los jobs.
