@@ -10,6 +10,8 @@ x-php: &php
   volumes:
     - ./backend:/var/www/backend
   environment:
+    # Home escribible para herramientas CLI (tinker/psysh, composer); www-data no tiene uno propio.
+    HOME: /tmp
     # Variables de proceso: Laravel las prefiere sobre backend/.env.
     DB_CONNECTION: pgsql
     DB_HOST: postgres
@@ -39,8 +41,38 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+
   php:
     <<: *php
+
+  worker:
+    <<: *php
+    # Reciclar el proceso acota estado acumulado; el contexto de empresa se fija y limpia por job (bloque 3).
+    command: ["php", "artisan", "queue:work", "--tries=1", "--max-jobs=500", "--max-time=3600"]
+    user: www-data
+    restart: unless-stopped
+
+  node:
+    image: node:24-bookworm-slim
+    working_dir: /app
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      HOME: /tmp
+      npm_config_update_notifier: "false"
+    # Mismo node_modules que npmd. Solo instala si falta; tras cambiar dependencias usa npmd npm install.
+    command: ["sh", "-c", "[ -d node_modules ] || npm ci; exec npm run dev"]
+    volumes:
+      - ./frontend:/app
+
+  nginx:
+    image: nginx:stable-bookworm
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+      - node
 
 volumes:
   pgdata:
