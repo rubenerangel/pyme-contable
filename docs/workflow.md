@@ -21,7 +21,7 @@ Tres roles en Claude Code. Rubén aprueba planes y commits.
 
 - Mismo árbol de trabajo, un agente a la vez. Compose monta ./backend y ./db, así que un worktree aparte necesitaría su propio stack.
 - Escalamiento: si el coder cree que un test está mal, lo reporta y no lo toca. El arquitecto corrige la especificación o pide al tester que corrija. Tras 2 rondas sin verde, el arquitecto para y le explica el bloqueo a Rubén.
-- Comandos de los agentes: tests, lint y typecheck vía docker compose o npmd, lectura, git diff y git status.
+- Comandos de los agentes: tests, lint y typecheck vía docker compose o npmd, lectura, git diff y git status. Los agentes no tienen el alias npmd (vive en el ~/.bashrc de Rubén): usan el docker run equivalente de [entorno.md](entorno.md) sin -it.
 - Solo el arquitecto, con OK de Rubén: git commit y push, docker compose down -v, instalar dependencias (composer require, npm install) y cambios de entorno (.env, volúmenes).
 - Context7: cada agente consulta la versión del lock antes de usar una API de librería e indica en una línea qué consultó. Si no está, lo dice y marca el código como no verificado.
 - Reporte final de cada agente: archivos tocados, comandos con su resultado, lo verificado y lo supuesto.
