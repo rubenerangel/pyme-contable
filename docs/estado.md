@@ -11,7 +11,7 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
 ## Estado
 
 - Orden de bloques:
-  1. Esqueleto: Docker Compose (postgres, php-fpm, nginx, worker, node), Laravel y Vite vacíos, CI con Pest y Vitest. En curso, dividido en pasos con un commit cada uno.
+  1. Esqueleto: Docker Compose (postgres, php-fpm, nginx, worker, node), Laravel y Vite vacíos, CI con Pest y Vitest. Hecho, en pasos con un commit cada uno.
   2. Roles de Postgres y dos conexiones en Laravel. Test que falla si la aplicación es dueña, tiene BYPASSRLS o UPDATE o DELETE sobre asientos, líneas o bitácora.
   3. Tenancy: empresas, usuarios, membresías, middleware de contexto desde sesión, middleware de job que fija y limpia. Test de fuga con dos empresas.
   4. Libro en SQL: cuentas, terceros, centros de costo, obras, municipios (catálogo global), periodos, contadores, documentos, asientos, líneas, triggers de cuadre e inmutabilidad, RLS, con sus tests de integración.
@@ -27,7 +27,9 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
   8. Hecho. Paquete pyme-contable-frontend con React 19.3, Vite 8.3, TypeScript 6.0 (strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes), Vitest 5.0 con jsdom 30 y Testing Library, oxlint. Scripts lint, typecheck, test y build en verde; test visto en rojo. Commit build(frontend).
   9. Hecho. nginx con / hacia Vite (websocket para HMR) y /api, /sanctum y /up hacia php-fpm con SCRIPT_FILENAME fijo, sin servir archivos de backend/public. Worker con queue:work como www-data, --tries=1, --max-jobs y --max-time, restart unless-stopped. Node con el mismo node_modules que npmd. HOME=/tmp en los contenedores PHP para herramientas CLI. SPA y API en http://localhost:${APP_HOST_PORT}. Verificado: /up 200, /api 404 de Laravel, / desde Vite, HMR, y un job encolado con Artisan::queue('about') procesado por el worker. Commit build(infra).
   10. Hecho. Repo privado en GitHub con push por SSH (llave ed25519 de WSL). Workflow ci en .github/workflows/ci.yml: actions fijadas por SHA (checkout v7.0.1, setup-node v7.1.0), permissions contents: read, persist-credentials false, concurrency por rama. Job backend vía Compose con .env generado en CI (build de imagen, Postgres con el mismo init, composer install, key:generate, pest), cerca de 1 min. Job frontend con Node 24: npm ci, lint, typecheck, test y build. Verificado en rojo con una rama que rompía el título. Commitlint pospuesto hasta que haya más desarrolladores. Pendiente evaluar caché de capas Docker si el backend se vuelve lento. Commit ci.
-  11. En curso. Documentación en el repo como fuente única: docs/decisiones.md, docs/estado.md, docs/entorno.md, docs/preguntas-contadora.md y docs/desarrollo.md, más CLAUDE.md corto en la raíz. El proyecto de claude.ai sincroniza docs/ y CLAUDE.md desde GitHub (sincronización manual). Después se continúa en Claude Code con modo plan.
+  11. Hecho. Documentación en el repo como fuente única: docs/decisiones.md, docs/estado.md, docs/entorno.md, docs/preguntas-contadora.md y docs/desarrollo.md, más CLAUDE.md corto en la raíz. El proyecto de claude.ai sincroniza docs/ y CLAUDE.md desde GitHub (sincronización manual). Commit docs.
+  12. Hecho. Claude Code en WSL con Context7 como MCP de usuario, fuera del repo. El trabajo sigue en Claude Code con modo plan.
+- Siguiente: bloque 2.
 - Regla: el commit que cierra un paso actualiza docs/estado.md en el mismo commit.
 - Redondeo, reinicio de consecutivos y reglas de cierre quedan configurables hasta que responda la contadora.
 - El motor de conceptos espera sus respuestas.
