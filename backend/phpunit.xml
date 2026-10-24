@@ -29,6 +29,7 @@
         <env name="APP_ENV" value="testing" force="true"/>
         <server name="DB_DATABASE" value="pyme_test"/>
         <env name="DB_DATABASE" value="pyme_test" force="true"/>
+        <env name="APP_LOCALE" value="es" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="MAIL_MAILER" value="array" force="true"/>

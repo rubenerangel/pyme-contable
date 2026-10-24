@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Models\Company;
 use App\Models\User;
+use Illuminate\Support\Arr;
+use Illuminate\Testing\TestResponse;
 
 // POST /api/v1/active-company: the user picks the active company of the session. Sanctum in SPA mode: the request is
 // stateful because it carries an Origin inside sanctum.stateful, and the user comes from the session guard (web).
@@ -43,6 +45,8 @@ it('rejects an unauthenticated request with 401', function (): void {
         ->postJson('/api/v1/active-company', ['company_id' => $company->id]);
 
     $response->assertUnauthorized();
+    $response->assertJsonPath('code', 'unauthenticated');
+    expect($response->headers->get('Content-Type'))->toStartWith('application/problem+json');
 });
 
 it('activates a company the user is a member of: 204 and the session stores it', function (): void {
@@ -79,6 +83,9 @@ it('rejects a company the user is not a member of with 403 and leaves the sessio
         ->postJson('/api/v1/active-company', ['company_id' => $companyB->id]);
 
     $response->assertForbidden();
+    $response->assertJsonPath('code', 'company_access_denied');
+    $response->assertJsonPath('detail', 'No tienes acceso a la empresa solicitada.');
+    expect($response->headers->get('Content-Type'))->toStartWith('application/problem+json');
     expect(session()->has('active_company_id'))->toBeFalse();
 });
 
@@ -117,11 +124,17 @@ it('answers a nonexistent company exactly like a company the user is not a membe
     $notMember = $this->postJson('/api/v1/active-company', ['company_id' => $otherCompany->id]);
     $nonexistent = $this->postJson('/api/v1/active-company', ['company_id' => $otherCompany->id + 1000]);
 
-    expect(['status' => $nonexistent->getStatusCode(), 'body' => $nonexistent->json()])->toBe([
-        'status' => $notMember->getStatusCode(),
-        'body' => $notMember->json(),
-    ]);
-    $nonexistent->assertJsonStructure(['message']);
+    // request_id changes on every request, so it is left out of the comparison (it must still be present in both).
+    $withoutRequestId = fn (TestResponse $response): array => [
+        'status' => $response->getStatusCode(),
+        'content_type' => $response->headers->get('Content-Type'),
+        'body' => Arr::except($response->json(), ['request_id']),
+    ];
+
+    expect($withoutRequestId($nonexistent))->toBe($withoutRequestId($notMember));
+    expect($nonexistent->json('code'))->toBe('company_access_denied');
+    expect($nonexistent->json('detail'))->toBe('No tienes acceso a la empresa solicitada.');
+    expect($nonexistent->json('request_id'))->toBeString()->not->toBe($notMember->json('request_id'));
 });
 
 it('rejects an invalid payload with 422 and does not touch the session', function (array $payload): void {
@@ -133,6 +146,7 @@ it('rejects an invalid payload with 422 and does not touch the session', functio
 
     $response->assertUnprocessable();
     $response->assertJsonValidationErrors(['company_id']);
+    $response->assertJsonPath('code', 'validation_failed');
     expect(session()->has('active_company_id'))->toBeFalse();
 })->with([
     'missing' => [[]],
@@ -151,6 +165,7 @@ it('answers 401 (not 500) to a bearer token without session, since there are no 
         ->postJson('/api/v1/active-company', ['company_id' => $company->id]);
 
     $response->assertUnauthorized();
+    $response->assertJsonPath('code', 'unauthenticated');
 })->with([
     'malformed token from the SPA' => ['abc', true],
     'id|secret token from the SPA' => ['1|0123456789abcdef0123456789abcdef', true],

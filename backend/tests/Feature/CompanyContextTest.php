@@ -123,7 +123,9 @@ it('answers 409 when the session has no active company, and enters no context', 
         ->getJson('/api/v1/probe');
 
     $response->assertStatus(409);
-    $response->assertJsonStructure(['message']);
+    $response->assertJsonPath('code', 'no_active_company');
+    $response->assertJsonPath('detail', 'No hay una empresa activa. Selecciona una empresa para continuar.');
+    expect($response->headers->get('Content-Type'))->toStartWith('application/problem+json');
     expect(app(DatabaseCompanyContext::class)->current())->toBeNull();
 });
 
@@ -140,7 +142,9 @@ it('answers 403 and forgets the active company when the membership was removed a
     $response = $this->getJson('/api/v1/probe');
 
     $response->assertForbidden();
-    $response->assertJsonStructure(['message']);
+    $response->assertJsonPath('code', 'active_company_access_revoked');
+    $response->assertJsonPath('detail', 'No tienes acceso a la empresa activa. Selecciona otra empresa.');
+    expect($response->headers->get('Content-Type'))->toStartWith('application/problem+json');
     expect(session()->has('active_company_id'))->toBeFalse();
 });
 
@@ -153,7 +157,7 @@ it('then answers 409 on the next request after the membership was removed (the s
     DB::table('company_user')->where('company_id', $companyA->id)->where('user_id', $user->id)->delete();
     $this->getJson('/api/v1/probe')->assertForbidden();
 
-    $this->getJson('/api/v1/probe')->assertStatus(409);
+    $this->getJson('/api/v1/probe')->assertStatus(409)->assertJsonPath('code', 'no_active_company');
 });
 
 it('leaves no company in the database context after any request', function (): void {
@@ -194,6 +198,7 @@ it('leaves the context cleared even if the route throws after entering it', func
     $response = $this->getJson('/api/v1/probe-fails');
 
     $response->assertStatus(500);
+    $response->assertJsonPath('code', 'internal_error');
     expect(app(DatabaseCompanyContext::class)->current())->toBeNull();
 });
 

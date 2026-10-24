@@ -152,7 +152,8 @@ Dónde se hace cumplir cada regla:
 ### Errores y logs
 
 - La API no filtra información interna: nunca envía clase, archivo, traza, SQL ni el mensaje interno de una excepción, sin importar APP_DEBUG. En desarrollo la traza se ve en los logs. Verificado en Laravel 13.38.0: con debug activo el JSON trae excepción, archivo, línea y traza; sin debug, una excepción HTTP pasa su mensaje tal cual (ModelNotFoundException revela clase e id).
-- Contrato de error: Problem Details (RFC 9457, application/problem+json) con las extensiones code (estable, en inglés, el frontend decide por él), request_id y errors (validación por campo). detail es un texto seguro en español, desde lang/es.
+- Contrato de error: Problem Details (RFC 9457, application/problem+json) con las extensiones code (estable, en inglés, el frontend decide por él), request_id y errors (validación por campo). detail es un texto seguro en español, desde lang/es. title en español por status. Sin type (equivale a about:blank). La aplicación corre en locale es con fallback en; lang/es/validation.php se escribe a mano con las reglas en uso hasta que haya formularios grandes (candidato: laravel-lang).
+- El kind de un error de dominio (ErrorKind) lo declara el propio error y la capa de entrada lo traduce a status. errorCode y kind son constantes de la clase. Un test de catálogo exige mensaje en lang/es para todo DomainError concreto.
 - Errores de dominio: excepción base con code() y contexto solo para logs. El dominio no conoce HTTP; la capa de entrada mapea cada error a status y mensaje. La infraestructura traduce los SQLSTATE esperados (UNIQUE de identidad externa, periodo cerrado) a errores de dominio. Lo inesperado responde 500 genérico con request_id.
 - nginx con server_tokens off; PHP ya tiene expose_php Off.
 - Logs en JSON a stderr (Monolog). El agregador y la herramienta de seguimiento de errores se eligen con el hosting.

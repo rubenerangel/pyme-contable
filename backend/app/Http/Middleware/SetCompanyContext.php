@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Application\Tenancy\ActiveCompanyAccessRevoked;
+use App\Application\Tenancy\NoActiveCompany;
 use App\Infrastructure\Tenancy\CompanyMemberships;
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use Closure;
@@ -28,7 +30,7 @@ final class SetCompanyContext
         $companyId = $session->get('active_company_id');
 
         if ($companyId === null) {
-            return response()->json(['message' => 'No hay una empresa activa. Selecciona una empresa para continuar.'], 409);
+            throw NoActiveCompany::inSession();
         }
 
         $companyId = (int) $companyId;
@@ -37,7 +39,7 @@ final class SetCompanyContext
         if (! $this->memberships->isMember($userId, $companyId)) {
             $session->forget('active_company_id');
 
-            return response()->json(['message' => 'No tienes acceso a la empresa activa. Selecciona otra empresa.'], 403);
+            throw ActiveCompanyAccessRevoked::forCompany($userId, $companyId);
         }
 
         $this->context->enter($companyId, $userId);
