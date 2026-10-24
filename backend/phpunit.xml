@@ -32,6 +32,10 @@
         <env name="APP_LOCALE" value="es" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>
+        <!-- The tests write no logs by themselves: those of logs redirect the stderr channel to a file. The quotes are
+             needed: Laravel's env() turns a bare null into PHP null (no channel, so the emergency logger writes to
+             storage/logs) and strips the quotes of a quoted value, leaving the name of the null channel. -->
+        <env name="LOG_CHANNEL" value="'null'" force="true"/>
         <env name="MAIL_MAILER" value="array" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>

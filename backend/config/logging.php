@@ -1,5 +1,7 @@
 <?php
 
+use App\Infrastructure\Logging\RedactSensitiveData;
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -18,7 +20,7 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'stack'),
+    'default' => env('LOG_CHANNEL', 'stderr'),
 
     /*
     |--------------------------------------------------------------------------
@@ -109,8 +111,13 @@ return [
             'handler_with' => [
                 'stream' => 'php://stderr',
             ],
-            'formatter' => env('LOG_STDERR_FORMATTER'),
-            'processors' => [PsrLogMessageProcessor::class],
+            // One JSON record per line, with the trace of an exception.
+            'formatter' => JsonFormatter::class,
+            'formatter_with' => ['includeStacktraces' => true],
+            // Monolog runs the processors in this order (Laravel's context processor goes first, ahead of both).
+            // The redaction goes before PsrLogMessageProcessor so a {password} placeholder is interpolated already
+            // redacted, not with the value.
+            'processors' => [RedactSensitiveData::class, PsrLogMessageProcessor::class],
         ],
 
         'syslog' => [

@@ -10,6 +10,7 @@ use App\Infrastructure\Tenancy\CompanyMemberships;
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Context;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -43,11 +44,13 @@ final class SetCompanyContext
         }
 
         $this->context->enter($companyId, $userId);
+        Context::add(['company_id' => $companyId, 'user_id' => $userId]);
 
         try {
             return $next($request);
         } finally {
             $this->context->leave();
+            Context::forget(['company_id', 'user_id']);
         }
     }
 }

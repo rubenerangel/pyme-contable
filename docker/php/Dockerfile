@@ -15,6 +15,7 @@ RUN groupmod -o -g "${GID}" www-data && usermod -o -u "${UID}" -g "${GID}" www-d
 
 # Last: it changes the most, so touching it does not rebuild the earlier layers.
 COPY php.ini /usr/local/etc/php/conf.d/zz-pyme.ini
+COPY zz-pyme-fpm.conf /usr/local/etc/php-fpm.d/zz-pyme-fpm.conf
 
 ENV COMPOSER_HOME=/tmp/composer
 WORKDIR /var/www/backend

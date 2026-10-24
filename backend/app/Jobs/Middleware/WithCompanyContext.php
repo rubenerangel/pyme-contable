@@ -7,6 +7,7 @@ namespace App\Jobs\Middleware;
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use Closure;
 use Illuminate\Container\Container;
+use Illuminate\Support\Facades\Context;
 
 /**
  * Job middleware that runs the job inside a company context. Business jobs declare it in middleware() with the
@@ -23,11 +24,13 @@ final class WithCompanyContext
         $context = Container::getInstance()->make(DatabaseCompanyContext::class);
 
         $context->enter($this->companyId, $this->userId);
+        Context::add(['company_id' => $this->companyId, 'user_id' => $this->userId]);
 
         try {
             return $next($job);
         } finally {
             $context->leave();
+            Context::forget(['company_id', 'user_id']);
         }
     }
 }

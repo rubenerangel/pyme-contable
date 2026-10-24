@@ -159,7 +159,7 @@ Dónde se hace cumplir cada regla:
 - Logs en JSON a stderr (Monolog). El agregador y la herramienta de seguimiento de errores se eligen con el hosting.
 - Correlación: request_id por request (o el de nginx), devuelto en X-Request-Id y cargado con Context de Laravel en la capa de entrada, que lo propaga a los jobs (verificado en vendor). Todo log lleva request_id, company_id y user_id, y el job cuando aplica.
 - Niveles: un rechazo de negocio esperado es info o no se registra; un 500 es error con la excepción; los eventos de seguridad (403 de empresa, login fallido) son warning.
-- Sin datos personales en los logs: ids, no nombres, NIT ni cuerpos de request. Un processor redacta claves sensibles. Pendiente decidir qué hacer con los valores del SQL de una QueryException.
+- Sin datos personales en los logs: ids, no nombres, NIT ni cuerpos de request. Un processor redacta claves sensibles. Una QueryException se registra sin valores: bindings enmascarados y mensaje de Postgres sin DETAIL. Residuo aceptado: el texto principal de algunos errores de Postgres trae el valor (por ejemplo invalid input syntax for type bigint: "abc"); la validación de entrada debe atraparlos antes. Trazas sin argumentos (zend.exception_ignore_args).
 - Los logs son operativos y rotan. La evidencia legal es audit_log, no los logs.
 
 ## Multi-tenant

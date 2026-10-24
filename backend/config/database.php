@@ -97,6 +97,8 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // The message of a QueryException carries the SQL with the bindings interpolated: values never reach logs.
+            'mask_bindings_in_exception_messages' => true,
         ],
 
         'pgsql_owner' => [
@@ -112,6 +114,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'mask_bindings_in_exception_messages' => true,
         ],
 
         'sqlsrv' => [
