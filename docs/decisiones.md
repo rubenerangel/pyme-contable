@@ -92,6 +92,7 @@
 ## Multi-tenant
 
 - Usuarios globales sin RLS. Membresías company_user con roles. Un usuario puede pertenecer a varias empresas.
+- companies y company_user son globales, sin RLS: la empresa es el tenant y la membresía se consulta antes de que haya empresa activa. company_user tiene PK (company_id, user_id) y role con CHECK mínimo ('admin', 'accountant'), que la segregación de funciones de la fase 3 amplía. FK sin cascada: una empresa o un usuario con membresías no se borra en silencio. La aplicación no tiene DELETE sobre companies.
 - Empresa activa en sesión. El request solo pide cambiar de empresa, el backend valida la membresía y la guarda en sesión. Todo lo demás toma company_id de la sesión, inyectado como contrato. Nunca es asignable en masa.
 - company_id en todas las tablas de negocio, con DEFAULT current_setting('app.company_id')::bigint para que ningún código lo asigne, y políticas RLS con USING y WITH CHECK que fallan cerrado si no hay contexto.
 - Doble barrera: RLS en Postgres y global scope de Eloquent como barrera de lectura.

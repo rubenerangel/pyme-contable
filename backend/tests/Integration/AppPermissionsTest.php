@@ -11,15 +11,19 @@ use Tests\RefreshDatabaseAsOwner;
 // so any extra privilege shows up in the assertSame diff.
 uses(RefreshDatabaseAsOwner::class);
 
-const LARAVEL_TABLES = [
-    'cache',
-    'cache_locks',
-    'failed_jobs',
-    'job_batches',
-    'jobs',
-    'password_reset_tokens',
-    'sessions',
-    'users',
+// Complete map of every table in public (except migrations) to the privileges pyme_app must have on it, in
+// alphabetical order. A new table without an entry here makes the privileges test fail.
+const EXPECTED_TABLE_PRIVILEGES = [
+    'cache' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'cache_locks' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'companies' => ['INSERT', 'SELECT', 'UPDATE'],
+    'company_user' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'failed_jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'job_batches' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'users' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
 ];
 
 const TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'];
@@ -75,8 +79,8 @@ it('all tables in the public schema belong to pyme_owner', function (): void {
 
     $this->assertSame(
         [],
-        array_values(array_diff([...LARAVEL_TABLES, 'migrations'], array_keys($owners))),
-        'Laravel tables are missing from public: was the test database migrated?',
+        array_values(array_diff([...array_keys(EXPECTED_TABLE_PRIVILEGES), 'migrations'], array_keys($owners))),
+        'Tables are missing from public: was the test database migrated?',
     );
 
     $this->assertSame(
@@ -86,16 +90,28 @@ it('all tables in the public schema belong to pyme_owner', function (): void {
     );
 });
 
-it('pyme_app has exactly SELECT, INSERT, UPDATE and DELETE on the Laravel tables', function (): void {
+it('pyme_app has exactly the expected privileges on every public table except migrations', function (): void {
     $actual = [];
-    foreach (LARAVEL_TABLES as $table) {
-        $actual[$table] = tablePrivilegesOf('pyme_app', $table);
+    foreach (DB::select(<<<'SQL'
+        select c.relname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and c.relname <> 'migrations'
+        order by c.relname
+        SQL) as $row) {
+        $actual[$row->relname] = tablePrivilegesOf('pyme_app', $row->relname);
     }
 
+    $expected = EXPECTED_TABLE_PRIVILEGES;
+    ksort($expected);
+    ksort($actual);
+
     $this->assertSame(
-        array_fill_keys(LARAVEL_TABLES, ['DELETE', 'INSERT', 'SELECT', 'UPDATE']),
+        $expected,
         $actual,
-        'pyme_app privileges per table: exactly DELETE, INSERT, SELECT and UPDATE.',
+        'pyme_app privileges per table (table → privileges). A table missing from EXPECTED_TABLE_PRIVILEGES shows up as extra in the diff.',
     );
 });
 
