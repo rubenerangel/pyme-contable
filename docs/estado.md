@@ -38,7 +38,7 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
   3. Hecho. Sanctum 4.3.3 en modo SPA sin tokens (Bearer da 401), rutas api/v1 con statefulApi, POST active-company con la acción SwitchActiveCompany y CompanyMemberships, y middleware company.context. ActiveCompanyTest y CompanyContextTest (fuga por API con dos empresas) vistos en rojo quitando el enter, la revalidación de membresía, el forget y el finally. El finally solo se distingue con withoutExceptionHandling, porque el pipeline de rutas convierte la excepción en 500 dentro de cada middleware. Commit feat(backend).
   4. Hecho. Job middleware WithCompanyContext (solo serializa company_id) y Queue::before que limpia el contexto antes de cada job. JobCompanyContextTest visto en rojo quitando el finally y el listener. Worker real verificado tras reiniciarlo. Commit feat(backend).
 - Bloque 3 cerrado. Pendientes para el bloque 4: política o contexto para migraciones de datos como pyme_owner (FORCE sin política para el dueño niega todo), gemelo de RefreshDatabaseAsOwner para DatabaseTruncation, test de UPDATE y DELETE sobre journal_entry, journal_entry_line y audit_log, borrar tenant_probe cuando exista la primera tabla real, global scope de Eloquent.
-- Siguiente: bloque 4.
+- Siguiente: bloque 4, en pausa hasta que la contadora responda las preguntas del plan de cuentas, naturaleza, dimensiones por cuenta, terceros, centavos y periodos (docs/preguntas-contadora.md).
 - Regla: el commit que cierra un paso actualiza docs/estado.md en el mismo commit.
 - Redondeo, reinicio de consecutivos y reglas de cierre quedan configurables hasta que responda la contadora.
 - El motor de conceptos espera sus respuestas.
