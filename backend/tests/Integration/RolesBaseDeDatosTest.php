@@ -90,3 +90,37 @@ it('pyme_app no es dueño de ninguna relación, esquema ni base', function (): v
     $this->assertSame([], $esquemas, 'pyme_app es dueño de esquemas: '.implode(', ', $esquemas));
     $this->assertSame([], $bases, 'pyme_app es dueño de bases de datos: '.implode(', ', $bases));
 });
+
+it('ni pyme_app ni pyme_owner pueden conectarse a la base postgres, y sí a pyme y pyme_test', function (): void {
+    // has_database_privilege lanza error SQL si el rol o la base no existen.
+    $fila = DB::selectOne(<<<'SQL'
+        select has_database_privilege('pyme_app',   'postgres',  'CONNECT') as app_postgres,
+               has_database_privilege('pyme_owner', 'postgres',  'CONNECT') as owner_postgres,
+               has_database_privilege('pyme_app',   'pyme',      'CONNECT') as app_pyme,
+               has_database_privilege('pyme_owner', 'pyme',      'CONNECT') as owner_pyme,
+               has_database_privilege('pyme_app',   'pyme_test', 'CONNECT') as app_pyme_test,
+               has_database_privilege('pyme_owner', 'pyme_test', 'CONNECT') as owner_pyme_test
+        SQL);
+
+    $connect = [
+        'pyme_app → postgres' => (bool) $fila->app_postgres,
+        'pyme_owner → postgres' => (bool) $fila->owner_postgres,
+        'pyme_app → pyme' => (bool) $fila->app_pyme,
+        'pyme_owner → pyme' => (bool) $fila->owner_pyme,
+        'pyme_app → pyme_test' => (bool) $fila->app_pyme_test,
+        'pyme_owner → pyme_test' => (bool) $fila->owner_pyme_test,
+    ];
+
+    $this->assertSame(
+        [
+            'pyme_app → postgres' => false,
+            'pyme_owner → postgres' => false,
+            'pyme_app → pyme' => true,
+            'pyme_owner → pyme' => true,
+            'pyme_app → pyme_test' => true,
+            'pyme_owner → pyme_test' => true,
+        ],
+        $connect,
+        'CONNECT esperado: ninguno de los dos roles sobre postgres (revocar a PUBLIC), ambos sobre pyme y pyme_test.',
+    );
+});
