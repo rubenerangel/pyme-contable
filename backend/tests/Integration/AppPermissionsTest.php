@@ -16,13 +16,14 @@ uses(RefreshDatabaseAsOwner::class);
 
 // Complete map of every table in public (except migrations) to the privileges pyme_app must have on it, in
 // alphabetical order. A new table without an entry here makes the privileges test fail.
-// document_counter, document_type and period have no table-level UPDATE: pyme_app updates only the columns declared in
-// EXPECTED_COLUMN_UPDATES.
+// account, document_counter, document_type and period have no table-level UPDATE: pyme_app updates only the columns
+// declared in EXPECTED_COLUMN_UPDATES.
 // audit_log is read-only for pyme_app: it is written by SECURITY DEFINER functions that run as pyme_owner, so it has no
 // UPDATE of any kind and is declared with an empty list in EXPECTED_COLUMN_UPDATES.
 // tenant_probe and audit_probe are tests-only tables (backend/tests/database/migrations): they exist in public only
 // during the tests.
 const EXPECTED_TABLE_PRIVILEGES = [
+    'account' => ['DELETE', 'INSERT', 'SELECT'],
     'audit_log' => ['SELECT'],
     'audit_probe' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'cache' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
@@ -45,6 +46,19 @@ const EXPECTED_TABLE_PRIVILEGES = [
 // where it has UPDATE (column privilege), in alphabetical order. A new table without table-level UPDATE must be
 // declared here, even if its list is empty.
 const EXPECTED_COLUMN_UPDATES = [
+    'account' => [
+        'code',
+        'is_active',
+        'is_postable',
+        'name',
+        'normal_balance',
+        'parent_id',
+        'requires_construction_project',
+        'requires_cost_center',
+        'requires_municipality',
+        'requires_tax_detail',
+        'requires_third_party',
+    ],
     'audit_log' => [],
     'document_counter' => ['last_number'],
     'document_type' => ['name'],
