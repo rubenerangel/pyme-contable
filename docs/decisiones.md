@@ -105,6 +105,7 @@
 - Sanctum solo en modo SPA con cookie de sesión: sin tabla personal_access_tokens, y AppServiceProvider anula la lectura de tokens, así que un Bearer da 401. La API vive bajo /api/v1 con statefulApi().
 - POST /api/v1/active-company valida la membresía (acción SwitchActiveCompany) y guarda active_company_id en la sesión. Sin membresía o con empresa inexistente responde el mismo 403. El middleware company.context (SetCompanyContext) responde 409 si no hay empresa activa, revalida la membresía en cada request (403 y borra la clave si se revocó) y fija el contexto con enter() y leave() en un finally.
 - Contexto de empresa con set_config al inicio de cada request. En jobs, el company_id viaja en el payload y el contexto se fija y se limpia por job, porque el worker es un proceso largo. Si algún día hay pooler en modo transacción u Octane, el contexto pasa a ser transaccional.
+- Jobs de negocio: declaran en middleware() el job middleware WithCompanyContext con el company_id de su payload, que hace enter() y leave() en un finally. Red de seguridad: Queue::before llama a leave() antes de cada job, así un job nunca hereda el contexto de otro, ni siquiera si un proceso murió a mitad de un job.
 - Claves únicas y FK compuestas con company_id.
 - Pruebas automáticas de fuga entre empresas en la API y en los jobs.
 
