@@ -24,7 +24,7 @@ jobs:
 
       - name: Variables de entorno de CI
         run: |
-          printf 'POSTGRES_PASSWORD=ci\nPYME_OWNER_PASSWORD=ci\nPG_HOST_PORT=5432\nAPP_HOST_PORT=8080\nUID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env
+          printf 'POSTGRES_PASSWORD=ci\nPYME_OWNER_PASSWORD=ci\nPYME_APP_PASSWORD=ci\nPG_HOST_PORT=5432\nAPP_HOST_PORT=8080\nUID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env
           cp backend/.env.example backend/.env
 
       - name: Construir imagen PHP

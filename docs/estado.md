@@ -29,7 +29,9 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
   10. Hecho. Repo privado en GitHub con push por SSH (llave ed25519 de WSL). Workflow ci en .github/workflows/ci.yml: actions fijadas por SHA (checkout v7.0.1, setup-node v7.1.0), permissions contents: read, persist-credentials false, concurrency por rama. Job backend vía Compose con .env generado en CI (build de imagen, Postgres con el mismo init, composer install, key:generate, pest), cerca de 1 min. Job frontend con Node 24: npm ci, lint, typecheck, test y build. Verificado en rojo con una rama que rompía el título. Commitlint pospuesto hasta que haya más desarrolladores. Pendiente evaluar caché de capas Docker si el backend se vuelve lento. Commit ci.
   11. Hecho. Documentación en el repo como fuente única: docs/decisiones.md, docs/estado.md, docs/entorno.md, docs/preguntas-contadora.md y docs/desarrollo.md, más CLAUDE.md corto en la raíz. El proyecto de claude.ai sincroniza docs/ y CLAUDE.md desde GitHub (sincronización manual). Commit docs.
   12. Hecho. Claude Code en WSL con Context7 como MCP de usuario, fuera del repo. El trabajo sigue en Claude Code con modo plan.
-- Siguiente: bloque 2.
+- Pasos del bloque 2 (flujo de docs/workflow.md):
+  1. Hecho. Rol pyme_app en db/init (LOGIN, sin SUPERUSER, CREATEDB, CREATEROLE, BYPASSRLS ni REPLICATION, sin membresías), CONNECT en pyme y pyme_test, USAGE sin CREATE en public. PYME_APP_PASSWORD en compose, .env.example y CI. Test de catálogo RolesBaseDeDatosTest visto en rojo por cada invariante (BYPASSRLS, CREATE en public, miembro de pyme_owner, dueño de una tabla). Requiere recrear el volumen local. Commit build(db).
+  2. Pendiente. Conexión por defecto como pyme_app y pgsql_owner para migrar y truncar, GRANT explícito a las tablas de Laravel, migrateFreshUsing con --database, tests de permisos.
 - Regla: el commit que cierra un paso actualiza docs/estado.md en el mismo commit.
 - Redondeo, reinicio de consecutivos y reglas de cierre quedan configurables hasta que responda la contadora.
 - El motor de conceptos espera sus respuestas.
