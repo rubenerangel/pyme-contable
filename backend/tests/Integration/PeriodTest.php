@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
@@ -20,7 +21,7 @@ uses(RefreshDatabaseAsOwner::class);
 function periodTestEnterNewCompany(): int
 {
     $company = Company::factory()->create();
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     return $company->id;
 }
@@ -121,7 +122,7 @@ it('accepts the same year and number in another company, and each company sees o
     periodTestInsert(2026, 1);
 
     $seenByB = DB::table('period')->pluck('company_id')->map(fn ($id) => (int) $id)->all();
-    $context->enter($companyA);
+    $context->enter($companyA, User::factory()->create()->id);
     $seenByA = DB::table('period')->pluck('company_id')->map(fn ($id) => (int) $id)->all();
 
     expect(['a' => $seenByA, 'b' => $seenByB])->toBe(['a' => [$companyA], 'b' => [$companyB]]);

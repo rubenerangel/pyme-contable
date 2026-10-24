@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 // request and enters the database company context (RLS) for the duration of the request only. The probe routes use
 // the same stack the business routes will use (prefix api/v1, middleware api + auth:sanctum + SetCompanyContext) and
 // read tenant_probe, a tests-only table with RLS by company.
+// The user of the connection (app.user_id) follows the same lifecycle: it is the authenticated user inside the
+// request and cleared after it.
 // Sanctum 4.3.3, Laravel 13 docs (Context7 /laravel/docs/__branch__13.x): stateful by Origin header; the user comes
 // from the session guard (web). CSRF is skipped by the framework under tests.
 
@@ -22,6 +24,11 @@ beforeEach(function (): void {
         ->group(function (): void {
             Route::get('/probe', fn () => response()->json([
                 'labels' => DB::table('tenant_probe')->orderBy('label')->pluck('label')->all(),
+            ]));
+
+            Route::get('/probe-context', fn () => response()->json([
+                'company' => DB::selectOne("select current_setting('app.company_id', true) as value")->value,
+                'user' => DB::selectOne("select current_setting('app.user_id', true) as value")->value,
             ]));
 
             Route::get('/probe-fails', function (): never {
@@ -51,9 +58,10 @@ function seedCompaniesWithProbeRows(): array
 {
     $context = app(DatabaseCompanyContext::class);
     $companies = ['a' => Company::factory()->create(), 'b' => Company::factory()->create()];
+    $seedUser = User::factory()->create();
 
     foreach ($companies as $key => $company) {
-        $context->enter($company->id);
+        $context->enter($company->id, $seedUser->id);
         DB::table('tenant_probe')->insert([['label' => $key.'-1'], ['label' => $key.'-2']]);
         $context->leave();
     }
@@ -226,4 +234,104 @@ it('rejects an unauthenticated request with 401 and enters no context', function
 
     $response->assertUnauthorized();
     expect(app(DatabaseCompanyContext::class)->current())->toBeNull();
+});
+
+it('sets the authenticated user in the connection context inside a business request, next to the active company', function (): void {
+    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    $user = memberOf([$companyA]);
+
+    $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
+    $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
+
+    $response = $this->getJson('/api/v1/probe-context')->assertOk();
+
+    expect(['company' => $response->json('company'), 'user' => $response->json('user')])->toBe([
+        'company' => (string) $companyA->id,
+        'user' => (string) $user->id,
+    ]);
+});
+
+it('leaves no user in the database context after any request', function (): void {
+    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithProbeRows();
+    $user = memberOf([$companyA]);
+    $context = app(DatabaseCompanyContext::class);
+    $afterEach = [];
+
+    $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
+
+    $this->getJson('/api/v1/probe-context')->assertStatus(409);
+    $afterEach['no active company'] = $context->currentUser();
+
+    $this->postJson('/api/v1/active-company', ['company_id' => $companyB->id])->assertForbidden();
+    $afterEach['activation rejected'] = $context->currentUser();
+
+    $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
+    $afterEach['activation accepted'] = $context->currentUser();
+
+    $this->getJson('/api/v1/probe-context')->assertOk();
+    $afterEach['business request'] = $context->currentUser();
+    $afterEach['raw setting'] = DB::selectOne("select current_setting('app.user_id', true) as value")->value;
+
+    expect($afterEach)->toBe([
+        'no active company' => null,
+        'activation rejected' => null,
+        'activation accepted' => null,
+        'business request' => null,
+        'raw setting' => '',
+    ]);
+});
+
+it('leaves the user cleared even if the route throws after entering the context', function (): void {
+    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    $user = memberOf([$companyA]);
+
+    $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
+    $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
+
+    $this->getJson('/api/v1/probe-fails')->assertStatus(500);
+
+    expect(app(DatabaseCompanyContext::class)->currentUser())->toBeNull();
+});
+
+it('leaves the user cleared when the exception crosses the middleware (finally, not just a rendered 500)', function (): void {
+    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    $user = memberOf([$companyA]);
+
+    $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
+    $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->getJson('/api/v1/probe-fails'))
+        ->toThrow(RuntimeException::class, 'Probe failure after entering the company context.');
+    expect(app(DatabaseCompanyContext::class)->currentUser())->toBeNull();
+});
+
+it('does not leak the user of one request into the next one when another user makes it', function (): void {
+    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    $first = memberOf([$companyA]);
+    $second = memberOf([$companyA]);
+
+    $this->withHeaders(companyContextSpaHeaders());
+
+    $this->actingAs($first);
+    $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
+    $seenByFirst = $this->getJson('/api/v1/probe-context')->assertOk()->json('user');
+
+    $this->actingAs($second);
+    $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
+    $seenBySecond = $this->getJson('/api/v1/probe-context')->assertOk()->json('user');
+
+    expect(['first' => $seenByFirst, 'second' => $seenBySecond])->toBe([
+        'first' => (string) $first->id,
+        'second' => (string) $second->id,
+    ]);
+});
+
+it('rejects an unauthenticated request with 401 and enters no user', function (): void {
+    seedCompaniesWithProbeRows();
+
+    $this->withHeaders(companyContextSpaHeaders())->getJson('/api/v1/probe-context')->assertUnauthorized();
+
+    expect(app(DatabaseCompanyContext::class)->currentUser())->toBeNull();
 });

@@ -11,8 +11,9 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Enters the database company context (RLS) for the duration of a business request. The active company comes from
- * the session and the membership is revalidated on every request. Must run after authentication.
+ * Enters the database company and user context (RLS) for the duration of a business request. The active company
+ * comes from the session, the user is the authenticated one, and the membership is revalidated on every request.
+ * Must run after authentication.
  */
 final class SetCompanyContext
 {
@@ -31,14 +32,15 @@ final class SetCompanyContext
         }
 
         $companyId = (int) $companyId;
+        $userId = (int) $request->user()->getAuthIdentifier();
 
-        if (! $this->memberships->isMember((int) $request->user()->getAuthIdentifier(), $companyId)) {
+        if (! $this->memberships->isMember($userId, $companyId)) {
             $session->forget('active_company_id');
 
             return response()->json(['message' => 'No tienes acceso a la empresa activa. Selecciona otra empresa.'], 403);
         }
 
-        $this->context->enter($companyId);
+        $this->context->enter($companyId, $userId);
 
         try {
             return $next($request);

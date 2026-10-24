@@ -10,21 +10,21 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Probe job that carries company_id in its payload and enters the company through the WithCompanyContext middleware.
+ * Probe job that carries company_id and user_id in its payload and enters the company through the WithCompanyContext middleware.
  * Reads the visible tenant_probe labels and leaves them in ProbeJobRecord.
  */
 class ReadProbeLabelsJob implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public readonly int $companyId) {}
+    public function __construct(public readonly int $companyId, public readonly int $userId) {}
 
     /**
      * @return list<object>
      */
     public function middleware(): array
     {
-        return [new WithCompanyContext($this->companyId)];
+        return [new WithCompanyContext($this->companyId, $this->userId)];
     }
 
     public function handle(): void

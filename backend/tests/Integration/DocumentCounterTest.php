@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Infrastructure\Ledger\DocumentCounters;
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
@@ -33,7 +34,7 @@ function counterTestDocumentType(Company $company, string $code = 'INV', bool $r
 
     // No finally on purpose: if the insert fails the transaction is aborted, a leave() in a finally would fail with
     // 25P02 and hide the original error. The RefreshDatabase rollback discards the context anyway.
-    $context->enter($company->id);
+    $context->enter($company->id, User::factory()->create()->id);
     $id = (int) DB::table('document_type')->insertGetId([
         'code' => $code,
         'name' => 'Document type '.$code,
@@ -73,7 +74,7 @@ function counterTestExpectSqlState(Closure $statement, string $sqlState, ?string
  */
 function counterTestInsertCounterAtOne(Company $company, int $documentTypeId, ?int $year = 2026): int
 {
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     return (int) DB::table('document_counter')->insertGetId([
         'document_type_id' => $documentTypeId,
@@ -85,7 +86,7 @@ function counterTestInsertCounterAtOne(Company $company, int $documentTypeId, ?i
 it('next returns 1, 2, 3 in a row for the same document type and year', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
     $counters = counterTestCounters();
 
     $numbers = [$counters->next($typeId, 2026), $counters->next($typeId, 2026), $counters->next($typeId, 2026)];
@@ -97,7 +98,7 @@ it('keeps an independent counter per document type', function (): void {
     $company = counterTestCompany();
     $invoiceId = counterTestDocumentType($company, 'INV');
     $paymentId = counterTestDocumentType($company, 'PAY');
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
     $counters = counterTestCounters();
 
     $numbers = [
@@ -113,7 +114,7 @@ it('keeps an independent counter per document type', function (): void {
 it('keeps an independent counter per year', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
     $counters = counterTestCounters();
 
     $numbers = [
@@ -128,7 +129,7 @@ it('keeps an independent counter per year', function (): void {
 it('treats a NULL year as one single counter, apart from the counters of a year', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company, 'LTR', resetsYearly: false);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
     $counters = counterTestCounters();
 
     $numbers = [
@@ -150,16 +151,16 @@ it('starts company B at 1 with its own document type while A is at 3, and neithe
     $typeB = counterTestDocumentType($companyB, 'INV');
     $counters = counterTestCounters();
 
-    $context->enter($companyA->id);
+    $context->enter($companyA->id, User::factory()->create()->id);
     $counters->next($typeA, 2026);
     $counters->next($typeA, 2026);
     $lastOfA = $counters->next($typeA, 2026);
 
-    $context->enter($companyB->id);
+    $context->enter($companyB->id, User::factory()->create()->id);
     $firstOfB = $counters->next($typeB, 2026);
     $seenByB = DB::table('document_counter')->pluck('last_number', 'document_type_id')->all();
 
-    $context->enter($companyA->id);
+    $context->enter($companyA->id, User::factory()->create()->id);
     $seenByA = DB::table('document_counter')->pluck('last_number', 'document_type_id')->all();
 
     expect(['a' => $lastOfA, 'b' => $firstOfB, 'seenByA' => $seenByA, 'seenByB' => $seenByB])->toBe([
@@ -173,7 +174,7 @@ it('starts company B at 1 with its own document type while A is at 3, and neithe
 it('rejects a direct insert of a counter with last_number other than 1 (trigger, SQLSTATE 23514)', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(fn () => DB::table('document_counter')->insert([
         'document_type_id' => $typeId,
@@ -235,7 +236,7 @@ it('accepts an update of exactly +1 on the counter', function (): void {
 it('rejects a second document type with the same code in the same company (UNIQUE, SQLSTATE 23505)', function (): void {
     $company = counterTestCompany();
     counterTestDocumentType($company, 'INV');
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(fn () => DB::table('document_type')->insert([
         'code' => 'INV',
@@ -246,7 +247,7 @@ it('rejects a second document type with the same code in the same company (UNIQU
 
 it('rejects a document type with a NULL resets_yearly (NOT NULL, SQLSTATE 23502)', function (): void {
     $company = counterTestCompany();
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(fn () => DB::table('document_type')->insert([
         'code' => 'INV',
@@ -257,7 +258,7 @@ it('rejects a document type with a NULL resets_yearly (NOT NULL, SQLSTATE 23502)
 
 it('rejects a document type that omits resets_yearly: the column has no DEFAULT (SQLSTATE 23502)', function (): void {
     $company = counterTestCompany();
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(
         fn () => DB::table('document_type')->insert(['code' => 'INV', 'name' => 'Invoice']),
@@ -268,7 +269,7 @@ it('rejects a document type that omits resets_yearly: the column has no DEFAULT 
 it('lets pyme_app update the name of a document type', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     $affected = DB::table('document_type')->where('id', $typeId)->update(['name' => 'Renamed']);
 
@@ -281,7 +282,7 @@ it('lets pyme_app update the name of a document type', function (): void {
 it('does not let pyme_app update the code of a document type (no UPDATE privilege on the column, SQLSTATE 42501)', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(
         fn () => DB::table('document_type')->where('id', $typeId)->update(['code' => 'OTHER']),
@@ -292,7 +293,7 @@ it('does not let pyme_app update the code of a document type (no UPDATE privileg
 it('does not let pyme_app update resets_yearly of a document type (no UPDATE privilege on the column, SQLSTATE 42501)', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(
         fn () => DB::table('document_type')->where('id', $typeId)->update(['resets_yearly' => false]),
@@ -303,7 +304,7 @@ it('does not let pyme_app update resets_yearly of a document type (no UPDATE pri
 it('does not let pyme_app delete a document type (no DELETE privilege, SQLSTATE 42501)', function (): void {
     $company = counterTestCompany();
     $typeId = counterTestDocumentType($company);
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(fn () => DB::table('document_type')->where('id', $typeId)->delete(), '42501');
 });
@@ -322,7 +323,7 @@ it('rejects a counter that points at a document type of another company (composi
     $typeOfB = counterTestDocumentType($companyB);
 
     // Context A with the id of a type of B, as pyme_app: as the owner the case could not be built because of FORCE.
-    app(DatabaseCompanyContext::class)->enter($companyA->id);
+    app(DatabaseCompanyContext::class)->enter($companyA->id, User::factory()->create()->id);
 
     counterTestExpectSqlState(fn () => DB::table('document_counter')->insert([
         'document_type_id' => $typeOfB,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Infrastructure\Ledger\DocumentCounters;
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ uses(DatabaseTruncationAsOwner::class);
 function counterConcurrencyRun(Closure $test): void
 {
     $company = Company::factory()->create();
+    $userId = User::factory()->create()->id;
 
     config(['database.connections.pgsql_second' => config('database.connections.pgsql')]);
     DB::purge('pgsql_second');
@@ -36,8 +38,8 @@ function counterConcurrencyRun(Closure $test): void
     $contextB = new DatabaseCompanyContext($connectionB);
 
     try {
-        $contextA->enter($company->id);
-        $contextB->enter($company->id);
+        $contextA->enter($company->id, $userId);
+        $contextB->enter($company->id, $userId);
         $connectionB->statement("set lock_timeout = '300ms'");
 
         $typeId = (int) $connectionA->table('document_type')->insertGetId([

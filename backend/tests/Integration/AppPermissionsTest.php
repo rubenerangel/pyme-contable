@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 
@@ -206,7 +207,7 @@ it('pyme_app can insert into jobs without an id and gets one (USAGE on jobs_id_s
 function enterCompanyForSequenceChecks(): Company
 {
     $company = Company::factory()->create();
-    app(DatabaseCompanyContext::class)->enter($company->id);
+    app(DatabaseCompanyContext::class)->enter($company->id, User::factory()->create()->id);
 
     return $company;
 }

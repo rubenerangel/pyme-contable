@@ -7,6 +7,7 @@ use App\Infrastructure\Ledger\PeriodLocks;
 use App\Infrastructure\Ledger\PeriodNotFound;
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ uses(DatabaseTruncationAsOwner::class);
 function periodLocksRun(Closure $test): void
 {
     $company = Company::factory()->create();
+    $userId = User::factory()->create()->id;
 
     config(['database.connections.pgsql_second' => config('database.connections.pgsql')]);
     DB::purge('pgsql_second');
@@ -40,8 +42,8 @@ function periodLocksRun(Closure $test): void
     $contextB = new DatabaseCompanyContext($connectionB);
 
     try {
-        $contextA->enter($company->id);
-        $contextB->enter($company->id);
+        $contextA->enter($company->id, $userId);
+        $contextB->enter($company->id, $userId);
         $connectionB->statement("set lock_timeout = '300ms'");
 
         $periodId = (int) $connectionA->table('period')->insertGetId(['year' => 2026, 'number' => 1]);
@@ -139,7 +141,7 @@ it('throws PeriodNotFound when the period does not exist', function (string $met
 it('throws PeriodNotFound for the period of another company, which RLS hides', function (string $method): void {
     periodLocksRun(function (int $companyId, int $periodId, PeriodLocks $locksA, PeriodLocks $locksB, ConnectionInterface $connectionA, ConnectionInterface $connectionB) use ($method): void {
         $otherCompany = Company::factory()->create();
-        (new DatabaseCompanyContext($connectionB))->enter($otherCompany->id);
+        (new DatabaseCompanyContext($connectionB))->enter($otherCompany->id, User::factory()->create()->id);
 
         // B is in the context of the other company and asks for the id of a period of the first company.
         $connectionB->beginTransaction();
