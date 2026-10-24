@@ -13,6 +13,7 @@ uses(RefreshDatabaseAsOwner::class);
 
 // Complete map of every table in public (except migrations) to the privileges pyme_app must have on it, in
 // alphabetical order. A new table without an entry here makes the privileges test fail.
+// tenant_probe is a tests-only table (backend/tests/database/migrations): it exists in public only during the tests.
 const EXPECTED_TABLE_PRIVILEGES = [
     'cache' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'cache_locks' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
@@ -23,6 +24,7 @@ const EXPECTED_TABLE_PRIVILEGES = [
     'jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'tenant_probe' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'users' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
 ];
 

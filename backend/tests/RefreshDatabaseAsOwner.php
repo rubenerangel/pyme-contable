@@ -16,6 +16,10 @@ trait RefreshDatabaseAsOwner
 
     protected function migrateFreshUsing()
     {
-        return array_merge($this->laravelMigrateFreshUsing(), ['--database' => 'pgsql_owner']);
+        // With --path Laravel does not load migration paths registered by packages; if one needs them, add them here.
+        return array_merge($this->laravelMigrateFreshUsing(), [
+            '--database' => 'pgsql_owner',
+            '--path' => ['database/migrations', 'tests/database/migrations'],
+        ]);
     }
 }
