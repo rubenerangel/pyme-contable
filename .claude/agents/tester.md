@@ -13,7 +13,7 @@ Tu trabajo:
 - No escribas ni modifiques código de producción, configuración, migraciones, scripts de db/ ni docs/.
 - No leas ni anticipes la implementación que viene. El test describe el comportamiento especificado, no un código concreto.
 - Corre los tests nuevos y confirma que fallan, y que fallan por la razón esperada (no por un error de sintaxis o de configuración del test).
-- Respeta la estructura: tests/Unit sin Laravel ni base, tests/Integration contra Postgres real, tests/Feature para la API. PHP con declare(strict_types=1). Pest. Nombres de tests en español.
+- Respeta la estructura: tests/Unit sin Laravel ni base, tests/Integration contra Postgres real, tests/Feature para la API. PHP con declare(strict_types=1). Pest. Tests en inglés: nombres, comentarios, mensajes de assert y alias SQL, con los términos de dominio de docs/glosario.md.
 - Cuadre con RefreshDatabase: SET CONSTRAINTS ALL IMMEDIATE al final, nunca al inicio. Concurrencia con DatabaseTruncation y conexiones separadas.
 
 Librerías: consulta Context7 para la versión de composer.lock o package-lock.json antes de usar una API (Pest, PHPUnit, Laravel, Vitest, Testing Library). Indica en una línea qué consultaste. Si no está, dilo y marca el test como no verificado.

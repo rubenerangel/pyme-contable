@@ -10,11 +10,12 @@ Sistema contable por conceptos para pymes de construcción en Colombia. Laravel 
 - [docs/desarrollo.md](docs/desarrollo.md): comandos.
 - [docs/preguntas-contadora.md](docs/preguntas-contadora.md): criterio contable pendiente.
 - [docs/workflow.md](docs/workflow.md): flujo arquitecto, tester y coder con agentes.
+- [docs/glosario.md](docs/glosario.md): términos del dominio y su nombre en código.
 
 ## Invariantes (nunca se negocian)
 
 - Ningún asiento contabilizado descuadrado persiste (constraint trigger diferido). Documentos contabilizados inmutables, se corrigen por reverso.
-- Aislamiento por empresa con RLS (FORCE) y global scope. La aplicación nunca asigna empresa_id ni se conecta como dueña de las tablas.
+- Aislamiento por empresa con RLS (FORCE) y global scope. La aplicación nunca asigna company_id ni se conecta como dueña de las tablas.
 - Consecutivos sin huecos con tabla de contadores y bloqueo de fila, nunca secuencias.
 - Montos: NUMERIC en Postgres, brick/math en PHP, string en la API. Nunca float ni number de JS.
 - Todo corre en UTC. America/Bogota solo explícita en dominio (reloj inyectado) y en presentación.
@@ -26,6 +27,7 @@ Sistema contable por conceptos para pymes de construcción en Colombia. Laravel 
 - Dominio y acciones sin facades, helpers globales (now, auth, config, app, request) ni Eloquent estático. Dependencias por constructor.
 - Interfaces solo con segunda implementación o necesidad real de test.
 - PHP con declare(strict_types=1). TypeScript en strict.
+- Código en inglés: identificadores, comentarios, tests, mensajes de assert, SQL, archivos y CI. Términos de dominio según docs/glosario.md. Español solo en lo que ve el usuario final, docs/ y la descripción de los commits.
 
 ## Librerías: Context7
 

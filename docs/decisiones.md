@@ -53,7 +53,7 @@
 ### Motor de conceptos
 
 - Cada concepto es una estrategia en PHP. Lo que se actualiza sin desplegar son los parámetros. Un cambio de fórmula es un despliegue con la suite golden en verde.
-- Se aplica la regla vigente en fecha_documento. El asiento guarda concepto, versión de estrategia, versión de parámetros y documento origen. Un cambio de regla nunca recalcula asientos contabilizados.
+- Se aplica la regla vigente en document_date. El asiento guarda concepto, versión de estrategia, versión de parámetros y documento origen. Un cambio de regla nunca recalcula asientos contabilizados.
 - No se construye un DSL de reglas editable.
 
 ### Documentos y asientos
@@ -61,7 +61,7 @@
 - Los documentos en borrador se editan. Desde que se contabilizan son inmutables, garantizado con trigger porque la aplicación sí tiene UPDATE sobre documentos. Solo se corrigen por reverso.
 - El reverso es un documento propio con referencia al original y su propio consecutivo, no un estado del original.
 - Dos identidades por documento: el consecutivo interno, asignado al contabilizar, y la identidad externa del soporte (NIT del emisor, prefijo, número, CUFE) con clave única por empresa, para no registrar dos veces la misma factura.
-- Dos fechas: fecha_documento decide regla y parámetros, fecha_contable decide el periodo. Iguales por defecto. Si pueden diferir y quién gana está pendiente de la contadora.
+- Dos fechas: document_date decide regla y parámetros, accounting_date decide el periodo. Iguales por defecto. Si pueden diferir y quién gana está pendiente de la contadora.
 - El asiento lleva columna de marco contable con un único valor por ahora, para no migrar el libro si se separa NIIF y fiscal.
 - Cada línea de asiento lleva tercero, centro de costo, obra y municipio de ejecución, obligatorios u opcionales según la cuenta. Se diseñan desde el módulo 2 para no migrar el libro después.
 
@@ -82,7 +82,7 @@
 
 - Consecutivo por empresa y tipo de documento, asignado al contabilizar con una tabla de contadores y bloqueo de fila en la misma transacción, nunca con secuencias de Postgres porque dejan huecos. Sin saltos es obligatorio. El reverso consume número. Reinicio anual y formato configurables.
 - Contabilizar toma FOR SHARE sobre la fila del periodo y cerrar toma FOR UPDATE. Orden fijo de bloqueo: periodo, luego contador.
-- Sin tabla de saldos por todas las dimensiones. Los periodos abiertos se consultan desde las líneas con índice cubriente (empresa_id, cuenta_id, tercero_id, fecha) INCLUDE (debito, credito). Al cerrar un periodo se guarda una foto de saldos que solo se recalcula al reabrir. Si la medición con datos sintéticos no alcanza la meta, se agregan saldos por cuenta y periodo.
+- Sin tabla de saldos por todas las dimensiones. Los periodos abiertos se consultan desde las líneas con índice cubriente (company_id, account_id, third_party_id, date) INCLUDE (debit, credit). Al cerrar un periodo se guarda una foto de saldos que solo se recalcula al reabrir. Si la medición con datos sintéticos no alcanza la meta, se agregan saldos por cuenta y periodo.
 
 ### Idempotencia
 
@@ -91,13 +91,13 @@
 
 ## Multi-tenant
 
-- Usuarios globales sin RLS. Membresías empresa_usuario con roles. Un usuario puede pertenecer a varias empresas.
-- Empresa activa en sesión. El request solo pide cambiar de empresa, el backend valida la membresía y la guarda en sesión. Todo lo demás toma empresa_id de la sesión, inyectado como contrato. Nunca es asignable en masa.
-- empresa_id en todas las tablas de negocio, con DEFAULT current_setting('app.empresa_id')::bigint para que ningún código lo asigne, y políticas RLS con USING y WITH CHECK que fallan cerrado si no hay contexto.
+- Usuarios globales sin RLS. Membresías company_user con roles. Un usuario puede pertenecer a varias empresas.
+- Empresa activa en sesión. El request solo pide cambiar de empresa, el backend valida la membresía y la guarda en sesión. Todo lo demás toma company_id de la sesión, inyectado como contrato. Nunca es asignable en masa.
+- company_id en todas las tablas de negocio, con DEFAULT current_setting('app.company_id')::bigint para que ningún código lo asigne, y políticas RLS con USING y WITH CHECK que fallan cerrado si no hay contexto.
 - Doble barrera: RLS en Postgres y global scope de Eloquent como barrera de lectura.
 - Dos usuarios de base de datos: el dueño de las tablas, solo para migraciones, y el de la aplicación, que no es dueño, no tiene BYPASSRLS ni UPDATE o DELETE sobre asientos, líneas y bitácora. Tablas con FORCE ROW LEVEL SECURITY.
-- Contexto de empresa con set_config al inicio de cada request. En jobs, el empresa_id viaja en el payload y el contexto se fija y se limpia por job, porque el worker es un proceso largo. Si algún día hay pooler en modo transacción u Octane, el contexto pasa a ser transaccional.
-- Claves únicas y FK compuestas con empresa_id.
+- Contexto de empresa con set_config al inicio de cada request. En jobs, el company_id viaja en el payload y el contexto se fija y se limpia por job, porque el worker es un proceso largo. Si algún día hay pooler en modo transacción u Octane, el contexto pasa a ser transaccional.
+- Claves únicas y FK compuestas con company_id.
 - Pruebas automáticas de fuga entre empresas en la API y en los jobs.
 
 ## Requisitos no funcionales (metas iniciales, ajustables con la contadora y el cliente)
@@ -139,7 +139,7 @@
 ### Mantenibilidad y observabilidad
 
 - Suite golden validada por la contadora. Migraciones siempre hacia adelante (expand y contract). API versionada con contrato OpenAPI generado desde el código y tipos de TypeScript generados a partir de él.
-- Logs estructurados con empresa_id y correlación por documento. Alertas de asientos rechazados, cierres fallidos y diferencias entre la foto de saldos de cierre y las líneas.
+- Logs estructurados con company_id y correlación por documento. Alertas de asientos rechazados, cierres fallidos y diferencias entre la foto de saldos de cierre y las líneas.
 
 ### Usabilidad
 

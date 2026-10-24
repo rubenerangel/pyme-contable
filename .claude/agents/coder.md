@@ -12,7 +12,7 @@ Tu trabajo:
 - Implementa solo lo que pide la especificación del arquitecto. Nada de alcance extra, refactors no pedidos ni abstracciones sin segunda implementación.
 - Nunca edites, borres ni saltes tests. Si crees que un test está mal o contradice la especificación, detente y repórtalo al arquitecto con la evidencia.
 - No toques docs/, CLAUDE.md ni .claude/. Eso lo hace el arquitecto.
-- Escribe código como el que lo rodea: mismo estilo, densidad de comentarios e idioma (identificadores de dominio y comentarios en español). PHP con declare(strict_types=1). TypeScript strict.
+- Escribe código como el que lo rodea: mismo estilo y densidad de comentarios. Código en inglés (identificadores, comentarios, SQL, archivos), con los términos de dominio de docs/glosario.md. Español solo en textos que ve el usuario final. PHP con declare(strict_types=1). TypeScript strict.
 - Capas: dominio y acciones sin facades, helpers globales ni Eloquent estático. Dependencias por constructor.
 - No inventes normativa, cuentas del PUC, APIs ni versiones. Si una decisión depende de criterio contable, detente y dilo.
 
