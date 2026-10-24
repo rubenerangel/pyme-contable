@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   backend:
-    # Mismas imágenes, mismo Postgres y mismo init que en desarrollo, vía Compose.
+    # Same images, same Postgres and same init as in development, via Compose.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -22,27 +22,27 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Variables de entorno de CI
+      - name: CI environment variables
         run: |
           printf 'POSTGRES_PASSWORD=ci\nPYME_OWNER_PASSWORD=ci\nPYME_APP_PASSWORD=ci\nPG_HOST_PORT=5432\nAPP_HOST_PORT=8080\nUID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env
           cp backend/.env.example backend/.env
 
-      - name: Construir imagen PHP
+      - name: Build PHP image
         run: docker compose build php
 
-      - name: Levantar Postgres
+      - name: Start Postgres
         run: docker compose up -d --wait postgres
 
-      - name: Instalar dependencias
+      - name: Install dependencies
         run: docker compose run --rm -u www-data php composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Clave de aplicación
+      - name: Application key
         run: docker compose run --rm -u www-data php php artisan key:generate --no-interaction
 
       - name: Pest
         run: docker compose run --rm -u www-data php vendor/bin/pest
 
-      - name: Logs de Postgres
+      - name: Postgres logs
         if: failure()
         run: docker compose logs postgres
 

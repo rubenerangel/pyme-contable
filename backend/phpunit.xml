@@ -5,15 +5,15 @@
          colors="true"
          failOnRisky="true">
     <testsuites>
-        <!-- Unit: dominio puro, sin Laravel ni base de datos. -->
+        <!-- Unit: pure domain, no Laravel and no database. -->
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
-        <!-- Integration: invariantes que viven en Postgres (cuadre, RLS, permisos, consecutivos). -->
+        <!-- Integration: invariants that live in Postgres (balancing, RLS, permissions, consecutive numbering). -->
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
-        <!-- Feature: API HTTP. -->
+        <!-- Feature: HTTP API. -->
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
@@ -24,7 +24,7 @@
         </include>
     </source>
     <php>
-        <!-- Laravel lee $_SERVER antes que $_ENV y Docker inyecta DB_DATABASE=pyme: se fuerzan ambos. -->
+        <!-- Laravel reads $_SERVER before $_ENV and Docker injects DB_DATABASE=pyme: both are forced. -->
         <server name="APP_ENV" value="testing"/>
         <env name="APP_ENV" value="testing" force="true"/>
         <server name="DB_DATABASE" value="pyme_test"/>

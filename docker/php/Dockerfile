@@ -1,4 +1,4 @@
-# PHP 8.4: Pest actual lo exige. Se ajusta si composer.lock pide otra.
+# PHP 8.4: current Pest requires it. Adjust if composer.lock asks for another.
 FROM php:8.4-fpm-bookworm
 
 RUN apt-get update \
@@ -8,12 +8,12 @@ RUN apt-get update \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Alinea www-data con el usuario del host.
+# Align www-data with the host user.
 ARG UID=1000
 ARG GID=1000
 RUN groupmod -o -g "${GID}" www-data && usermod -o -u "${UID}" -g "${GID}" www-data
 
-# Al final: es lo que más cambia, así tocarlo no reconstruye las capas anteriores.
+# Last: it changes the most, so touching it does not rebuild the earlier layers.
 COPY php.ini /usr/local/etc/php/conf.d/zz-pyme.ini
 
 ENV COMPOSER_HOME=/tmp/composer

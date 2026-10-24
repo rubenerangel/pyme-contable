@@ -10,18 +10,18 @@ x-php: &php
   volumes:
     - ./backend:/var/www/backend
   environment:
-    # Home escribible para herramientas CLI (tinker/psysh, composer); www-data no tiene uno propio.
+    # Writable home for CLI tools (tinker/psysh, composer); www-data has none of its own.
     HOME: /tmp
-    # Variables de proceso: Laravel las prefiere sobre backend/.env.
+    # Process variables: Laravel prefers them over backend/.env.
     DB_CONNECTION: pgsql
     DB_HOST: postgres
     DB_PORT: 5432
     DB_DATABASE: pyme
     # The app runs as pyme_app; pgsql_owner (pyme_owner) is only for migrating.
     DB_USERNAME: pyme_app
-    DB_PASSWORD: ${PYME_APP_PASSWORD:?definir en .env}
+    DB_PASSWORD: ${PYME_APP_PASSWORD:?set it in .env}
     DB_OWNER_USERNAME: pyme_owner
-    DB_OWNER_PASSWORD: ${PYME_OWNER_PASSWORD:?definir en .env}
+    DB_OWNER_PASSWORD: ${PYME_OWNER_PASSWORD:?set it in .env}
   depends_on:
     postgres:
       condition: service_healthy
@@ -31,16 +31,16 @@ services:
     image: postgres:17-bookworm
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir en .env}
-      PYME_OWNER_PASSWORD: ${PYME_OWNER_PASSWORD:?definir en .env}
-      PYME_APP_PASSWORD: ${PYME_APP_PASSWORD:?definir en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env}
+      PYME_OWNER_PASSWORD: ${PYME_OWNER_PASSWORD:?set it in .env}
+      PYME_APP_PASSWORD: ${PYME_APP_PASSWORD:?set it in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     ports:
       - "127.0.0.1:${PG_HOST_PORT:-5432}:5432"
     healthcheck:
-      # Por TCP: el servidor temporal del init solo escucha por socket, así no se marca sano a mitad del init.
+      # Over TCP: the temporary init server only listens on the socket, so it is not marked healthy mid-init.
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d pyme_test"]
       interval: 3s
       timeout: 3s
@@ -51,7 +51,7 @@ services:
 
   worker:
     <<: *php
-    # Reciclar el proceso acota estado acumulado; el contexto de empresa se fija y limpia por job (bloque 3).
+    # Recycling the process bounds accumulated state; the company context is set and cleared per job (block 3).
     command: ["php", "artisan", "queue:work", "--tries=1", "--max-jobs=500", "--max-time=3600"]
     user: www-data
     restart: unless-stopped
@@ -63,7 +63,7 @@ services:
     environment:
       HOME: /tmp
       npm_config_update_notifier: "false"
-    # Mismo node_modules que npmd. Solo instala si falta; tras cambiar dependencias usa npmd npm install.
+    # Same node_modules as npmd. Only installs if missing; after changing dependencies use npmd npm install.
     command: ["sh", "-c", "[ -d node_modules ] || npm ci; exec npm run dev"]
     volumes:
       - ./frontend:/app

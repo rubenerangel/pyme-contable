@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Escucha en todas las interfaces para que nginx (paso 9) llegue al contenedor.
+    // Listen on all interfaces so nginx can reach the container.
     host: true,
     port: 5173,
     strictPort: true,

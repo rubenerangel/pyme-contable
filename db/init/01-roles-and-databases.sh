@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Corre una sola vez al crear el volumen de Postgres (docker-entrypoint-initdb.d) y en CI.
-# Dos roles: pyme_owner (dueño de bases y tablas, solo migraciones) y pyme_app (runtime, sin ownership ni BYPASSRLS).
-# Los GRANT sobre tablas van explícitos en cada migración, aquí pyme_app solo conecta y ve el esquema public.
+# Runs once when the Postgres volume is created (docker-entrypoint-initdb.d) and in CI.
+# Two roles: pyme_owner (owns databases and tables, migrations only) and pyme_app (runtime, no ownership and no BYPASSRLS).
+# Table GRANTs are explicit in each migration; here pyme_app only connects and sees the public schema.
 set -euo pipefail
 
 : "${POSTGRES_USER:?}"
