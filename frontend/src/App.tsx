@@ -1,7 +1,7 @@
 export function App() {
   return (
     <main>
-      <h1>PyME Contable</h1>
+      <Pyme>PyME Contable</Pyme>
       <p>Esqueleto de la UI de validación.</p>
     </main>
   )
