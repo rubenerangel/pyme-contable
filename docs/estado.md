@@ -5,7 +5,7 @@
 1. Mínima: multi-tenant con membresías, RLS, roles de base de datos, login de sesión y esqueleto de la SPA.
 2. Libro mayor: catálogo de cuentas como seed, dimensiones, periodos, cierres con foto de saldos, consecutivos, saldos iniciales, con sus pantallas de consulta. Medición con 1M de líneas sintéticas.
 3. Antes de cargar datos reales del cliente: MFA y segregación de funciones.
-4. Motor de conceptos: estrategias y parámetros versionados, retenciones (retefuente, IVA, ICA), AIU, anticipos y retegarantía, con previsualización y validación de casos golden.
+4. Motor de conceptos: estrategias y parámetros versionados, retenciones (retefuente, IVA, ICA), AIU, anticipos y retegarantía, detalle tributario (tax_line) y conceptos fiscales, con previsualización y validación de casos golden.
 Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto desde WhatsApp, facturación electrónica y documento soporte con proveedor tecnológico, nómina, activos fijos, exógena.
 
 ## Estado
@@ -14,7 +14,7 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
   1. Esqueleto: Docker Compose (postgres, php-fpm, nginx, worker, node), Laravel y Vite vacíos, CI con Pest y Vitest. Hecho, en pasos con un commit cada uno.
   2. Roles de Postgres y dos conexiones en Laravel. Test que falla si la aplicación es dueña o tiene BYPASSRLS. Hecho en dos pasos (abajo). El test de UPDATE o DELETE sobre asientos, líneas y bitácora pasa al bloque 4, donde nacen esas tablas.
   3. Tenancy: empresas, usuarios, membresías, middleware de contexto desde sesión, middleware de job que fija y limpia. Test de fuga con dos empresas.
-  4. Libro en SQL: cuentas, terceros, centros de costo, obras, municipios (catálogo global), periodos, contadores, documentos, asientos, líneas, triggers de cuadre e inmutabilidad, RLS, con sus tests de integración. Incluye el test que falla si pyme_app tiene UPDATE o DELETE sobre journal_entry, journal_entry_line o audit_log.
+  4. Libro en SQL: periodos (0 a 13), contadores, bitácora, cuentas con is_postable y flags requires_*, terceros, centros de costo, obras, municipios (catálogo global), documentos, asientos, líneas, triggers de cuadre, inmutabilidad, cuenta imputable y dimensiones, RLS, con sus tests de integración. Incluye el test que falla si pyme_app tiene UPDATE o DELETE sobre journal_entry, journal_entry_line o audit_log.
   5. Dominio: Monto sobre brick/math, AsientoPropuesto que cuadra en memoria, acción Contabilizar. Tests unitarios.
   6. Formato golden con 2 o 3 casos ficticios, para que la contadora valide la forma.
   7. API y SPA: login, selector de empresa, plan de cuentas, auxiliar, balance. Luego datos sintéticos y medición.
@@ -38,7 +38,14 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
   3. Hecho. Sanctum 4.3.3 en modo SPA sin tokens (Bearer da 401), rutas api/v1 con statefulApi, POST active-company con la acción SwitchActiveCompany y CompanyMemberships, y middleware company.context. ActiveCompanyTest y CompanyContextTest (fuga por API con dos empresas) vistos en rojo quitando el enter, la revalidación de membresía, el forget y el finally. El finally solo se distingue con withoutExceptionHandling, porque el pipeline de rutas convierte la excepción en 500 dentro de cada middleware. Commit feat(backend).
   4. Hecho. Job middleware WithCompanyContext (solo serializa company_id) y Queue::before que limpia el contexto antes de cada job. JobCompanyContextTest visto en rojo quitando el finally y el listener. Worker real verificado tras reiniciarlo. Commit feat(backend).
 - Bloque 3 cerrado. Pendientes para el bloque 4: política o contexto para migraciones de datos como pyme_owner (FORCE sin política para el dueño niega todo), gemelo de RefreshDatabaseAsOwner para DatabaseTruncation, test de UPDATE y DELETE sobre journal_entry, journal_entry_line y audit_log, borrar tenant_probe cuando exista la primera tabla real, global scope de Eloquent.
-- Siguiente: bloque 4, en pausa hasta que la contadora responda las preguntas del plan de cuentas, naturaleza, dimensiones por cuenta, terceros, centavos y periodos (docs/preguntas-contadora.md).
+- Siguiente: bloque 4 en avance parcial, sin esperar a la contadora, en este orden (las líneas referencian cuentas y maestros, por eso van al final):
+  1. Periodos (0 a 13, con tipo y estado) y contadores, con bloqueos y tests de concurrencia. Incluye el gemelo de RefreshDatabaseAsOwner para DatabaseTruncation.
+  2. Bitácora genérica.
+  3. Estructura de cuentas: parent_id, is_postable, normal_balance y flags requires_*, probada con un catálogo ficticio de tests. Con esta primera tabla real se borra tenant_probe y entra el global scope.
+  4. Maestros: terceros, centros de costo, obras y municipios.
+  5. Documentos, asientos y líneas: CHECK exclusivo, cuadre diferido, mínimo 2 líneas, inmutabilidad, reverso único, triggers de periodo y de cuenta, y el test de UPDATE y DELETE.
+  Luego el bloque 5. El bloque 6 (formato golden con casos ficticios) puede adelantarse para acelerar las respuestas de la contadora.
+- Bloqueado hasta que responda la contadora (docs/preguntas-contadora.md): siembra del catálogo de cuentas, valores de los flags por cuenta, regla de redondeo, regla de fechas, tratamiento de consorcios y uniones temporales, y el motor de conceptos. Si un paso depende de alguno, no se planea.
 - Regla: el commit que cierra un paso actualiza docs/estado.md en el mismo commit.
 - Redondeo, reinicio de consecutivos y reglas de cierre quedan configurables hasta que responda la contadora.
 - El motor de conceptos espera sus respuestas.

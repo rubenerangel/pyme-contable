@@ -5,7 +5,7 @@ Sistema contable por conceptos para pymes de construcción en Colombia. Laravel 
 ## Documentación (fuente de verdad, léela antes de proponer cambios)
 
 - [docs/decisiones.md](docs/decisiones.md): stack, arquitectura, decisiones de diseño, multi-tenant, requisitos no funcionales, tests.
-- [docs/estado.md](docs/estado.md): fases, bloques y avance. Dice qué sigue.
+- [docs/estado.md](docs/estado.md): fases, bloques y avance. Dice qué sigue y qué está bloqueado.
 - [docs/entorno.md](docs/entorno.md): WSL, Docker, puertos, alias npmd.
 - [docs/desarrollo.md](docs/desarrollo.md): comandos.
 - [docs/preguntas-contadora.md](docs/preguntas-contadora.md): criterio contable pendiente.
@@ -43,6 +43,7 @@ Antes de usar o configurar una API de librería, consulta Context7 para la versi
 ## Forma de trabajo
 
 - Rubén quiere entender cada paso. En cambios no triviales: modo plan, propuesta corta, aprobación, cambios pequeños con sus tests.
+- Antes de planear un paso, revisa los bloqueos en docs/estado.md. Si el paso depende de una pregunta abierta de docs/preguntas-contadora.md, no lo planees: dilo y propone lo que sí puede avanzar.
 - La sesión principal es el arquitecto: delega tests al agente tester y código al agente coder según docs/workflow.md.
 - Distingue lo verificado de lo supuesto. No inventes normativa, tarifas, cuentas del PUC, APIs ni versiones.
 - Cuestiona decisiones si ves riesgo o exceso de abstracción. Si este archivo y docs/ se contradicen, avisa en vez de elegir.

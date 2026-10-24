@@ -36,6 +36,8 @@
 - Estrategia: clase de dominio en PHP que implementa la fórmula de un concepto (AIU, anticipos, retegarantía, retenciones). Se versiona con el código.
 - Parámetros: valores con vigencia por fecha que usa una estrategia (cuentas, tarifas, bases, UVT), versionados en tablas y validados contra el esquema que declara la estrategia.
 - Regla: estrategia más la versión de parámetros vigente en la fecha del documento.
+- Detalle tributario: impuestos, retenciones, bases y clasificación fiscal de una operación, enlazados a las líneas del asiento.
+- Concepto fiscal: clasificación fiscal interna de una operación, que se mapea a los conceptos DIAN de cada año gravable. No confundir con el concepto de negocio.
 
 ## Arquitectura y principios
 
@@ -47,6 +49,7 @@
 - Los controladores, comandos y jobs son delgados: validan, arman la entrada y llaman a una acción. Nada de lógica contable en controladores, modelos ni componentes de React.
 - Los catálogos simples (por ejemplo ciudades o tipos de documento) pueden usar Eloquent directo en la capa de aplicación. El rigor de repositorios es para el libro mayor, las reglas y los documentos.
 - No crear interfaces sin una segunda implementación o una necesidad real de test. Si una abstracción no se justifica, dilo.
+- Monolito modular. Módulos: catálogo y terceros, documentos, motor de conceptos, libro mayor, capa fiscal, reportes. La contabilización es una sola transacción.
 
 ## Decisiones de diseño
 
@@ -54,40 +57,95 @@
 
 - Cada concepto es una estrategia en PHP. Lo que se actualiza sin desplegar son los parámetros. Un cambio de fórmula es un despliegue con la suite golden en verde.
 - Se aplica la regla vigente en document_date. El asiento guarda concepto, versión de estrategia, versión de parámetros y documento origen. Un cambio de regla nunca recalcula asientos contabilizados.
+- La estrategia valida lo que exige cada operación (beneficiario, base, detalle tributario) y genera el detalle tributario junto con el asiento.
 - No se construye un DSL de reglas editable.
+
+### Catálogo de cuentas
+
+- Plan de cuentas por empresa, con RLS, sembrado desde una plantilla. Con la Ley 1314 de 2009 no hay un PUC único obligatorio para estas empresas (doctrina del CTCP; Supersociedades, Oficio 115-117755, para el Grupo 1). El PUC del Decreto 2650 de 1993 sirve de plantilla. El contenido de la siembra está pendiente de la contadora.
+- Jerarquía por parent_id. Solo las cuentas con is_postable reciben líneas. Una cuenta con hijas no es imputable y una cuenta con movimientos no recibe hijas. El CHECK de que el código empieza por el del padre solo se agrega si la contadora confirma estructura PUC.
+- normal_balance es informativo: signo de presentación y alerta de saldo contrario. Nunca bloquea un movimiento. Default por clase al sembrar; las contracuentas (depreciación acumulada, deterioro) se configuran por cuenta.
+- Una cuenta con movimientos no se borra ni cambia código, normal_balance, is_postable ni flags. Se desactiva con is_active. Sin vigencias en el catálogo: la historia apunta al id y la bitácora guarda los cambios.
+- Flags por cuenta requires_third_party, requires_cost_center, requires_construction_project, requires_municipality y requires_tax_detail, validados por trigger sobre las líneas. Los valores de cada cuenta están pendientes de la contadora.
+- La clasificación financiera (presentación) y la fiscal (exógena) no se derivan del código de la cuenta.
+
+### Terceros
+
+- Por empresa, con RLS, sin identidad global: una identidad compartida obliga a gobernar quién edita datos que ven varias empresas y expone qué terceros tiene cada una.
+- Clave única (company_id, id_type, id_number, country). DV calculado y validado, nunca digitado. Nombres y apellidos separados para personas naturales, razón social para jurídicas. Datos de contacto en tabla aparte, suprimible.
+- Los seudo-NIT de cuantías menores (222222222, tipo de documento 43) se generan al reportar; no son terceros. El consumidor final de facturación es un tercero único.
+- El documento guarda en jsonb la condición fiscal del tercero que usó la regla (responsabilidades del RUT, autorretenedor, gran contribuyente). Un cambio posterior del tercero no altera el pasado.
 
 ### Documentos y asientos
 
 - Los documentos en borrador se editan. Desde que se contabilizan son inmutables, garantizado con trigger porque la aplicación sí tiene UPDATE sobre documentos. Solo se corrigen por reverso.
-- El reverso es un documento propio con referencia al original y su propio consecutivo, no un estado del original.
+- El reverso es un documento propio con referencia al original y su propio consecutivo, no un estado del original. UNIQUE(reverses_document_id): un original se revierte una sola vez, y solo si está contabilizado.
 - Dos identidades por documento: el consecutivo interno, asignado al contabilizar, y la identidad externa del soporte (NIT del emisor, prefijo, número, CUFE) con clave única por empresa, para no registrar dos veces la misma factura.
-- Dos fechas: document_date decide regla y parámetros, accounting_date decide el periodo. Iguales por defecto. Si pueden diferir y quién gana está pendiente de la contadora.
+- Fechas: document_date decide regla y parámetros. accounting_date ubica el asiento. period_id es explícito, con CHECK de que accounting_date cae dentro del periodo, porque el periodo 13 comparte fecha con diciembre. posted_at es el timestamp UTC de contabilización. El año gravable se deriva de accounting_date. Si document_date y accounting_date pueden diferir está pendiente de la contadora.
 - El asiento lleva columna de marco contable con un único valor por ahora, para no migrar el libro si se separa NIIF y fiscal.
-- Cada línea de asiento lleva tercero, centro de costo, obra y municipio de ejecución, obligatorios u opcionales según la cuenta. Se diseñan desde el módulo 2 para no migrar el libro después.
+- Cada línea de asiento lleva tercero, centro de costo, obra y municipio de ejecución, obligatorios u opcionales según los flags de la cuenta. Se diseñan desde el módulo 2 para no migrar el libro después.
+
+### Capa fiscal y exógena
+
+- La exógena no se deriva del código de la cuenta: una cuenta mezcla tratamientos fiscales (el formato 1001 separa el pago deducible del no deducible) y una operación toca varias cuentas.
+- Detalle tributario en tax_line por documento, enlazado a la línea del asiento: tipo (pago, ingreso, retención, IVA), concepto fiscal, base, tarifa, valor, deducible, tercero, beneficiario y municipio. Lo genera la estrategia; en comprobantes manuales lo exige el flag requires_tax_detail. Es tabla aparte del libro: entra con el motor de conceptos sin migrar las líneas.
+- fiscal_concept: catálogo global interno de conceptos fiscales.
+- Mapeo concepto fiscal → formato, concepto DIAN y columna, por año gravable, global con override por empresa. El mapeo por cuenta queda solo como respaldo de comprobantes manuales y como control.
+- La especificación de cada formato es un dato versionado por año gravable (jsonb), no una tabla por formato.
+- reporting_run y reporting_record guardan totales, errores, valores reportados y referencias a los documentos y líneas de origen. Cada run concilia lo reportado contra el libro.
+- Los valores reportados son enteros positivos (visto en un anexo antiguo del formato 1001, confirmar en el vigente). El redondeo se hace al generar y su diferencia queda en la conciliación.
+- Si una partida es deducible lo define la contadora.
+- Normativa de referencia: Resolución DIAN 000227 de 2025 (Única, título 3, información exógena) y sus modificaciones (000233 y 000237 de 2025, que aplican desde el año gravable 2026; 000012 y 000021 de 2026). Se verifica cada año gravable.
 
 ### Integridad en Postgres
 
 - Partida doble con constraint trigger diferido al commit sobre las líneas. Valida una vez por asiento y transacción usando una marca local con set_config(..., true). Atrapa líneas agregadas en otra transacción. Un CHECK no sirve porque abarca varias filas.
+- Asiento contabilizado con al menos 2 líneas: un asiento sin líneas suma cero y pasaría el cuadre.
+- Línea: CHECK de débito y crédito mayores o iguales a cero y exactamente uno mayor que cero, sin excepciones.
+- Trigger sobre las líneas: cuenta imputable, activa y con las dimensiones que exigen sus flags.
+- Trigger sobre el documento: periodo abierto, accounting_date dentro del periodo, tipo de documento permitido en el periodo 13. Es la red bajo los bloqueos de la acción Contabilizar.
 - Bitácora de cambios de datos (maestros, borradores, parámetros) con trigger genérico: valor anterior y nuevo en jsonb, usuario tomado de set_config. Aprobaciones, cierres y reaperturas se registran como eventos explícitos en la misma tabla.
+
+Dónde se hace cumplir cada regla:
+
+| Regla | Base de datos | Dominio | Concurrencia |
+|---|---|---|---|
+| Partida doble | Constraint trigger diferido, mínimo 2 líneas | AsientoPropuesto | Se valida al commit |
+| Periodo cerrado | Trigger en el documento | Contabilizar | FOR SHARE del periodo frente a FOR UPDATE del cierre |
+| Inmutabilidad | Sin UPDATE ni DELETE, trigger en documentos | n/a | n/a |
+| Reverso único | UNIQUE(reverses_document_id) | Acción de reverso | El UNIQUE resuelve la carrera |
+| Aislamiento por empresa | RLS, FK compuestas | Global scope | n/a |
+| Idempotencia | UNIQUE de identidad externa | Estado del documento | El UNIQUE resuelve la carrera |
+| Consecutivos | Tabla de contadores | Contabilizar | FOR UPDATE; sin anulación después de numerar |
+| Cuenta imputable y dimensiones | Trigger en las líneas | Mensaje amigable | Atributos congelados al tener movimientos |
+| Conciliaciones | n/a | Job y alertas | n/a |
+| Segregación de funciones | Roles de base de datos | Políticas (fase 3) | n/a |
+| Auditoría | Triggers de bitácora | Eventos explícitos | n/a |
 
 ### Montos y fechas
 
 - Montos en NUMERIC en Postgres. En PHP nunca se opera con float: el cast decimal de Eloquent devuelve string y toda aritmética va con brick/math. Cuando se pueda, los totales se calculan en SQL.
+- Importes en NUMERIC(18,2). Tarifas y porcentajes con escala mayor, que se fija al modelar los parámetros.
+- El redondeo lo aplica la estrategia en el cálculo, no la presentación. El asiento guarda el valor realmente practicado y la contrapartida absorbe la diferencia, así el asiento cuadra. Lo que viene de un soporte (factura electrónica) se registra tal cual. Los prorrateos asignan el residuo para que la suma sea exacta. Si se redondea por línea o por documento está pendiente.
+- Reglas verificadas, a confirmar con la contadora: las declaraciones y los recibos de pago se aproximan al múltiplo de mil (ET, art. 577 y 802); las retenciones al peso (Decreto 2026 de 1983, art. 19, citado en el Concepto DIAN 65791 de 2013; confirmar su compilación en el DUR 1625 de 2016); el IVA cobrado puede aproximarse al múltiplo de 10 (DUR 1625 de 2016, art. 1.3.1.1.1, según el Oficio DIAN 3550 de 2026).
+- Redondear cada línea de un estado financiero rompe los totales: línea de ajuste por redondeo o totales calculados aparte.
 - La API envía montos como string. El frontend no hace aritmética contable con number de JavaScript: muestra y formatea, y la previsualización del asiento la calcula el backend.
 - Fecha contable como DATE derivada en America/Bogota, separada del timestamp de registro en UTC.
 - Laravel, PHP y Postgres corren en UTC. America/Bogota solo se aplica explícitamente en dominio, con el reloj inyectado, para derivar fechas contables, y en la presentación. Nunca se cambia app.timezone.
-- Moneda única COP. Multimoneda fuera de alcance.
+- Moneda única COP. Multimoneda fuera de alcance. Si aparece una operación en moneda extranjera, el documento guarda moneda original y TRM como datos y el libro solo registra COP (pendiente de la contadora).
 
 ### Consecutivos, periodos y saldos
 
-- Consecutivo por empresa y tipo de documento, asignado al contabilizar con una tabla de contadores y bloqueo de fila en la misma transacción, nunca con secuencias de Postgres porque dejan huecos. Sin saltos es obligatorio. El reverso consume número. Reinicio anual y formato configurables.
+- Consecutivo por empresa y tipo de documento, asignado al contabilizar con una tabla de contadores y bloqueo de fila en la misma transacción, nunca con secuencias de Postgres porque dejan huecos. Sin saltos es obligatorio. El reverso consume número. Reinicio anual y formato configurables. Un número asignado no se anula: se revierte.
+- Periodos por empresa y año: 0 de apertura (saldos iniciales), 1 a 12 regulares y 13 de ajustes, con tipo y estado. UNIQUE(company_id, year, number). Si usan el 13 está pendiente; el modelo lo soporta sin cambios. El periodo 13 solo admite tipos de documento de ajuste y cierre.
+- El cierre de las cuentas de resultado es un documento propio generado por el sistema, revertible por reverso al reabrir, que deja en cero las cuentas de resultado. Los reportes permiten excluir los documentos de cierre.
 - Contabilizar toma FOR SHARE sobre la fila del periodo y cerrar toma FOR UPDATE. Orden fijo de bloqueo: periodo, luego contador.
 - Sin tabla de saldos por todas las dimensiones. Los periodos abiertos se consultan desde las líneas con índice cubriente (company_id, account_id, third_party_id, date) INCLUDE (debit, credit). Al cerrar un periodo se guarda una foto de saldos que solo se recalcula al reabrir. Si la medición con datos sintéticos no alcanza la meta, se agregan saldos por cuenta y periodo.
 
 ### Idempotencia
 
 - Contabilizar es idempotente por el estado del documento y la clave única por empresa y documento origen. La creación queda protegida por la identidad externa. La tabla genérica de claves de idempotencia en la API se pospone.
-- Saldos iniciales y migración de histórico se diseñan desde el módulo 2.
+- Saldos iniciales y migración de histórico se diseñan desde el módulo 2, con tercero y dimensiones, porque la exógena del primer año los necesita.
 
 ## Multi-tenant
 
@@ -125,7 +183,7 @@
 - Libros oficiales generables en el formato que pida la contadora.
 - El soporte válido de una compra es la factura electrónica validada por la DIAN o el documento soporte electrónico. La foto de WhatsApp es solo insumo de captura.
 - Datos de terceros: lo que la contabilidad debe conservar (identificación, nombre, operaciones) se conserva el plazo legal. Los datos de contacto van separados y se pueden suprimir. Los backups tienen un plazo de retención definido. Habeas Data (Ley 1581 de 2012) se revisa con un abogado.
-- Exógena en fase posterior, pero el modelo ya exige tercero según la cuenta y soporta formatos versionados por año.
+- Exógena en fase posterior. El diseño está en "Capa fiscal y exógena" y el modelo ya lo soporta desde el libro.
 
 ### Seguridad
 
@@ -168,6 +226,7 @@
 - Las invariantes que viven en Postgres (trigger de cuadre, inmutabilidad, RLS, permisos, consecutivos) se prueban con integración contra la base real, porque un mock no las prueba.
 - Cuadre dentro de RefreshDatabase: se inserta normal y al final se ejecuta SET CONSTRAINTS ALL IMMEDIATE, que dispara en ese momento los chequeos diferidos pendientes. Nunca al inicio del test, porque haría fallar asientos válidos insertados en varias sentencias.
 - Concurrencia (consecutivos, cierre contra contabilización) con DatabaseTruncation y conexiones separadas que hacen commit real.
+- Mientras la contadora no entregue el catálogo, los tests usan un catálogo ficticio mínimo que no pretende ser el PUC.
 - Los casos golden viven como archivos de datos versionados (entrada, asiento esperado, estado de aprobación) que la UI muestra a la contadora.
 - Frontend: tests de componentes de los flujos de validación y de la previsualización del asiento.
 - Todo test que protege una invariante se ve fallar al menos una vez (rompiendo la condición a propósito) antes de darlo por bueno.
