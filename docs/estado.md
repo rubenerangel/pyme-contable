@@ -12,9 +12,9 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
 
 - Orden de bloques:
   1. Esqueleto: Docker Compose (postgres, php-fpm, nginx, worker, node), Laravel y Vite vacíos, CI con Pest y Vitest. Hecho, en pasos con un commit cada uno.
-  2. Roles de Postgres y dos conexiones en Laravel. Test que falla si la aplicación es dueña, tiene BYPASSRLS o UPDATE o DELETE sobre asientos, líneas o bitácora.
+  2. Roles de Postgres y dos conexiones en Laravel. Test que falla si la aplicación es dueña o tiene BYPASSRLS. Hecho en dos pasos (abajo). El test de UPDATE o DELETE sobre asientos, líneas y bitácora pasa al bloque 4, donde nacen esas tablas.
   3. Tenancy: empresas, usuarios, membresías, middleware de contexto desde sesión, middleware de job que fija y limpia. Test de fuga con dos empresas.
-  4. Libro en SQL: cuentas, terceros, centros de costo, obras, municipios (catálogo global), periodos, contadores, documentos, asientos, líneas, triggers de cuadre e inmutabilidad, RLS, con sus tests de integración.
+  4. Libro en SQL: cuentas, terceros, centros de costo, obras, municipios (catálogo global), periodos, contadores, documentos, asientos, líneas, triggers de cuadre e inmutabilidad, RLS, con sus tests de integración. Incluye el test que falla si pyme_app tiene UPDATE o DELETE sobre journal_entry, journal_entry_line o audit_log.
   5. Dominio: Monto sobre brick/math, AsientoPropuesto que cuadra en memoria, acción Contabilizar. Tests unitarios.
   6. Formato golden con 2 o 3 casos ficticios, para que la contadora valide la forma.
   7. API y SPA: login, selector de empresa, plan de cuentas, auxiliar, balance. Luego datos sintéticos y medición.
@@ -32,6 +32,7 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
 - Pasos del bloque 2 (flujo de docs/workflow.md):
   1. Hecho. Rol pyme_app en db/init (LOGIN, sin SUPERUSER, CREATEDB, CREATEROLE, BYPASSRLS ni REPLICATION, sin membresías), CONNECT en pyme y pyme_test, USAGE sin CREATE en public. CONNECT a la base postgres revocado a PUBLIC. PYME_APP_PASSWORD en compose, .env.example y CI. Test de catálogo DatabaseRolesTest visto en rojo por cada invariante (BYPASSRLS, CREATE en public, miembro de pyme_owner, dueño de una tabla). Requiere recrear el volumen local. Commit build(db).
   2. Hecho. Conexión por defecto pgsql como pyme_app y pgsql_owner (pyme_owner, sin DB_URL) solo para migrar. Migración con GRANT explícito de SELECT, INSERT, UPDATE y DELETE sobre las tablas de Laravel y USAGE en sus secuencias. Nada sobre migrations, sin default privileges. Trait Tests\RefreshDatabaseAsOwner migra con --database=pgsql_owner: un override de migrateFreshUsing en TestCase no sirve porque gana el método del trait. AppPermissionsTest visto en rojo rompiendo cada invariante (GRANT faltante, TRUNCATE, privilegio en migrations, default privilege, USAGE en secuencia, migrar sin --database, app como pyme_owner). DatabaseTruncation como dueño queda para el bloque 4. Requiere migrate --database=pgsql_owner en la base local. Commit build(db).
+- Siguiente: bloque 3.
 - Regla: el commit que cierra un paso actualiza docs/estado.md en el mismo commit.
 - Redondeo, reinicio de consecutivos y reglas de cierre quedan configurables hasta que responda la contadora.
 - El motor de conceptos espera sus respuestas.
