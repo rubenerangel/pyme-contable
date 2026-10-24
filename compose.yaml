@@ -1,5 +1,26 @@
 name: pyme-contable
 
+x-php: &php
+  build:
+    context: docker/php
+    args:
+      UID: ${UID:-1000}
+      GID: ${GID:-1000}
+  image: pyme-contable-php:dev
+  volumes:
+    - ./backend:/var/www/backend
+  environment:
+    # Variables de proceso: Laravel las prefiere sobre backend/.env.
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: pyme
+    DB_USERNAME: pyme_owner
+    DB_PASSWORD: ${PYME_OWNER_PASSWORD:?definir en .env}
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:17-bookworm
@@ -18,6 +39,8 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+  php:
+    <<: *php
 
 volumes:
   pgdata:
