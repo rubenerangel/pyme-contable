@@ -26,6 +26,7 @@ Sistema contable por conceptos para pymes de construcción en Colombia. Laravel 
 - Capas: dominio, aplicación (acciones), infraestructura, entrada. Controladores, jobs y comandos delgados.
 - Dominio y acciones sin facades, helpers globales (now, auth, config, app, request) ni Eloquent estático. Dependencias por constructor.
 - Interfaces solo con segunda implementación o necesidad real de test.
+- Patrones de diseño cuando resuelven un problema presente. Cada plan nombra en MAYÚSCULAS el patrón de cada pieza, por qué y qué alternativa se descartó; si no hace falta patrón, se dice. Sin sobreingeniería: nada para casos hipotéticos.
 - PHP con declare(strict_types=1). TypeScript en strict.
 - Código en inglés: identificadores, comentarios, tests, mensajes de assert, SQL, archivos y CI. Términos de dominio según docs/glosario.md. Español solo en lo que ve el usuario final, docs/ y la descripción de los commits.
 

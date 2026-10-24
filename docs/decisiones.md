@@ -49,6 +49,8 @@
 - Los controladores, comandos y jobs son delgados: validan, arman la entrada y llaman a una acción. Nada de lógica contable en controladores, modelos ni componentes de React.
 - Los catálogos simples (por ejemplo ciudades o tipos de documento) pueden usar Eloquent directo en la capa de aplicación. El rigor de repositorios es para el libro mayor, las reglas y los documentos.
 - No crear interfaces sin una segunda implementación o una necesidad real de test. Si una abstracción no se justifica, dilo.
+- Patrones de diseño (GoF y de Fowler: REPOSITORY, TABLE DATA GATEWAY, VALUE OBJECT, UNIT OF WORK) solo cuando resuelven un problema que el código ya tiene. Cada plan nombra en MAYÚSCULAS el patrón de cada pieza, el problema que resuelve y la alternativa descartada; si una pieza no lo necesita, el plan lo dice.
+- Sin sobreingeniería: la solución más simple que cumpla las invariantes. Nada de capas, fábricas, interfaces, eventos, configuración o genericidad para casos hipotéticos; se agregan cuando aparece el segundo caso real. Tres líneas repetidas son mejores que una abstracción prematura. Si un patrón agrega más código del que ahorra, no va.
 - Monolito modular. Módulos: catálogo y terceros, documentos, motor de conceptos, libro mayor, capa fiscal, reportes. La contabilización es una sola transacción.
 
 ## Decisiones de diseño

@@ -26,4 +26,5 @@ Tres roles en Claude Code. Rubén aprueba planes y commits.
 - Context7: cada agente consulta la versión del lock antes de usar una API de librería e indica en una línea qué consultó. Si no está, lo dice y marca el código como no verificado.
 - Reporte final de cada agente: archivos tocados, comandos con su resultado, lo verificado y lo supuesto.
 - Revisión: la hace el arquitecto. /code-review solo si Rubén lo pide.
+- Patrones: el plan y la especificación nombran en MAYÚSCULAS el patrón de cada pieza, por qué y la alternativa descartada, o dicen que no hace falta. El coder aplica solo los que pide la especificación y los nombra en su reporte. La revisión del arquitecto incluye buscar sobreingeniería: una abstracción sin un segundo caso real se quita.
 - Las restricciones de comandos de los agentes son por instrucción. Los permisos efectivos son los de la sesión.
