@@ -30,6 +30,7 @@
 ## Periodos, fechas y cierre
 
 - Si los periodos son mensuales y si usan un periodo 13 de cierre. Si lo usan, qué documentos admite y qué reportes se generan con y sin el asiento de cierre.
+- Qué fecha toman los saldos iniciales del periodo 0. Supuesto actual: el 1 de enero del año, y el periodo 13 el 31 de diciembre.
 - Si document_date (regla y parámetros) y accounting_date (periodo) pueden diferir, y qué pasa si la regla corresponde a un periodo y el documento cae en otro cerrado.
 - Reverso de un documento en periodo cerrado: qué fecha y qué periodo toma.
 - Proceso de cierre y reapertura, si los consecutivos reinician cada año, cuántos años de histórico migrar.

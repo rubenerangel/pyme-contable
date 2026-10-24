@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Infrastructure\Tenancy\DatabaseCompanyContext;
+use App\Models\Company;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 
@@ -13,19 +15,33 @@ uses(RefreshDatabaseAsOwner::class);
 
 // Complete map of every table in public (except migrations) to the privileges pyme_app must have on it, in
 // alphabetical order. A new table without an entry here makes the privileges test fail.
+// document_counter, document_type and period have no table-level UPDATE: pyme_app updates only the columns declared in
+// EXPECTED_COLUMN_UPDATES.
 // tenant_probe is a tests-only table (backend/tests/database/migrations): it exists in public only during the tests.
 const EXPECTED_TABLE_PRIVILEGES = [
     'cache' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'cache_locks' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'companies' => ['INSERT', 'SELECT', 'UPDATE'],
     'company_user' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'document_counter' => ['INSERT', 'SELECT'],
+    'document_type' => ['INSERT', 'SELECT'],
     'failed_jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'job_batches' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'period' => ['INSERT', 'SELECT'],
     'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'tenant_probe' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'users' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+];
+
+// Complete map of every table in public (except migrations) on which pyme_app has no table-level UPDATE to the columns
+// where it has UPDATE (column privilege), in alphabetical order. A new table without table-level UPDATE must be
+// declared here, even if its list is empty.
+const EXPECTED_COLUMN_UPDATES = [
+    'document_counter' => ['last_number'],
+    'document_type' => ['name'],
+    'period' => ['status'],
 ];
 
 const TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'];
@@ -117,6 +133,38 @@ it('pyme_app has exactly the expected privileges on every public table except mi
     );
 });
 
+it('pyme_app has exactly the expected UPDATE columns on every public table without table-level UPDATE', function (): void {
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select c.oid, c.relname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and c.relname <> 'migrations'
+          and not has_table_privilege('pyme_app', c.oid, 'UPDATE')
+        order by c.relname
+        SQL) as $table) {
+        $columns = array_column(DB::select(<<<'SQL'
+            select a.attname
+            from pg_attribute a
+            where a.attrelid = ?
+              and a.attnum > 0
+              and not a.attisdropped
+              and has_column_privilege('pyme_app', a.attrelid, a.attnum, 'UPDATE')
+            order by a.attname
+            SQL, [$table->oid]), 'attname');
+
+        $actual[$table->relname] = $columns;
+    }
+
+    $this->assertSame(
+        EXPECTED_COLUMN_UPDATES,
+        $actual,
+        'Table → columns where pyme_app has UPDATE, for every table without table-level UPDATE. A new table without table-level UPDATE must be declared in EXPECTED_COLUMN_UPDATES.',
+    );
+});
+
 it('pyme_app has no privileges on migrations', function (): void {
     $this->assertSame(
         [],
@@ -150,6 +198,42 @@ it('pyme_app can insert into jobs without an id and gets one (USAGE on jobs_id_s
     ]);
 
     $this->assertGreaterThan(0, (int) $id, 'The insert into jobs as pyme_app must return a generated id.');
+});
+
+/**
+ * Creates a company and enters its context on the default connection (pyme_app).
+ */
+function enterCompanyForSequenceChecks(): Company
+{
+    $company = Company::factory()->create();
+    app(DatabaseCompanyContext::class)->enter($company->id);
+
+    return $company;
+}
+
+it('pyme_app can insert into period without an id and gets one (USAGE on period_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('period')->insertGetId(['year' => 2026, 'number' => 1]);
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into period as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into document_type without an id and gets one (USAGE on document_type_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('document_type')->insertGetId(['code' => 'INV', 'name' => 'Invoice', 'resets_yearly' => true]);
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into document_type as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into document_counter without an id and gets one (USAGE on document_counter_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+    $typeId = DB::table('document_type')->insertGetId(['code' => 'INV', 'name' => 'Invoice', 'resets_yearly' => true]);
+
+    $id = DB::table('document_counter')->insertGetId(['document_type_id' => $typeId, 'year' => 2026, 'last_number' => 1]);
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into document_counter as pyme_app must return a generated id.');
 });
 
 it('there are no default privileges (pg_default_acl is empty)', function (): void {
