@@ -147,6 +147,18 @@ Dónde se hace cumplir cada regla:
 - Contabilizar es idempotente por el estado del documento y la clave única por empresa y documento origen. La creación queda protegida por la identidad externa. La tabla genérica de claves de idempotencia en la API se pospone.
 - Saldos iniciales y migración de histórico se diseñan desde el módulo 2, con tercero y dimensiones, porque la exógena del primer año los necesita.
 
+### Errores y logs
+
+- La API no filtra información interna: nunca envía clase, archivo, traza, SQL ni el mensaje interno de una excepción, sin importar APP_DEBUG. En desarrollo la traza se ve en los logs. Verificado en Laravel 13.38.0: con debug activo el JSON trae excepción, archivo, línea y traza; sin debug, una excepción HTTP pasa su mensaje tal cual (ModelNotFoundException revela clase e id).
+- Contrato de error: Problem Details (RFC 9457, application/problem+json) con las extensiones code (estable, en inglés, el frontend decide por él), request_id y errors (validación por campo). detail es un texto seguro en español, desde lang/es.
+- Errores de dominio: excepción base con code() y contexto solo para logs. El dominio no conoce HTTP; la capa de entrada mapea cada error a status y mensaje. La infraestructura traduce los SQLSTATE esperados (UNIQUE de identidad externa, periodo cerrado) a errores de dominio. Lo inesperado responde 500 genérico con request_id.
+- nginx con server_tokens off; PHP ya tiene expose_php Off.
+- Logs en JSON a stderr (Monolog). El agregador y la herramienta de seguimiento de errores se eligen con el hosting.
+- Correlación: request_id por request (o el de nginx), devuelto en X-Request-Id y cargado con Context de Laravel en la capa de entrada, que lo propaga a los jobs (verificado en vendor). Todo log lleva request_id, company_id y user_id, y el job cuando aplica.
+- Niveles: un rechazo de negocio esperado es info o no se registra; un 500 es error con la excepción; los eventos de seguridad (403 de empresa, login fallido) son warning.
+- Sin datos personales en los logs: ids, no nombres, NIT ni cuerpos de request. Un processor redacta claves sensibles. Pendiente decidir qué hacer con los valores del SQL de una QueryException.
+- Los logs son operativos y rotan. La evidencia legal es audit_log, no los logs.
+
 ## Multi-tenant
 
 - Usuarios globales sin RLS. Membresías company_user con roles. Un usuario puede pertenecer a varias empresas.

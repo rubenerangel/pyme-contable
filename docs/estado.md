@@ -42,6 +42,9 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
   2. Bitácora, en dos pasos. Plan aprobado: pyme_app solo SELECT sobre audit_log, escritura por funciones SECURITY DEFINER (trigger de cambios y audit_log_event), sin usuario en contexto la escritura falla, encadenamiento por hash después con un job de sellado.
      - 2a. Hecho. DatabaseCompanyContext::enter(companyId, userId) fija app.company_id y app.user_id, leave() limpia ambos, currentUser() nuevo. SetCompanyContext pasa el usuario autenticado y WithCompanyContext serializa company_id y user_id. Tests existentes con usuarios reales. Vistos en rojo: leave sin usuario, enter sin usuario, sin finally en el middleware HTTP y en el de jobs, sin Queue::before, usuario equivocado en HTTP y en jobs. Commit feat(backend).
      - 2b. Tabla audit_log y funciones.
+  Después del 2b, antes del paso 3 (plan aprobado, ver decisiones.md, Errores y logs):
+     - E1. Errores: contrato Problem Details, errores de dominio, renderer que ignora APP_DEBUG, nginx sin versión, tests de no filtración con APP_DEBUG=true.
+     - E2. Logs: JSON a stderr, request_id con Context propagado a jobs, redacción de datos sensibles, niveles.
 - Bloque 3 cerrado. Pendientes para el bloque 4: política o contexto para migraciones de datos como pyme_owner (FORCE sin política para el dueño niega todo), test de UPDATE y DELETE sobre journal_entry, journal_entry_line y audit_log, borrar tenant_probe cuando exista la primera tabla real, global scope de Eloquent.
 - Siguiente: bloque 4 en avance parcial, sin esperar a la contadora, en este orden (las líneas referencian cuentas y maestros, por eso van al final):
   1. Hecho (ver Pasos del bloque 4).
