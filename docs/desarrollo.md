@@ -10,7 +10,7 @@ cp backend/.env.example backend/.env
 docker compose build php
 docker compose run --rm -u www-data php composer install
 docker compose run --rm -u www-data php php artisan key:generate
-docker compose run --rm -u www-data php php artisan migrate
+docker compose run --rm -u www-data php php artisan migrate --database=pgsql_owner
 npmd npm ci
 docker compose up -d
 ```
@@ -31,7 +31,7 @@ docker compose down                  # apagar (conserva la base)
 ```bash
 docker compose run --rm -u www-data php vendor/bin/pest                         # todos los tests
 docker compose run --rm -u www-data php vendor/bin/pest --testsuite=Integration
-docker compose run --rm -u www-data php php artisan migrate
+docker compose run --rm -u www-data php php artisan migrate --database=pgsql_owner
 docker compose run --rm -u www-data php composer require <paquete>
 ```
 
@@ -59,6 +59,8 @@ Nunca `npm` suelto: en WSL resuelve al npm de Windows.
 - `db/init/` corre solo al crear el volumen. Para reaplicarlo (borra los datos): `docker compose down -v`.
 - Consola: `docker compose exec postgres psql -U postgres -d pyme`.
 - Desde un cliente en Windows: `127.0.0.1:5433`, usuario `pyme_owner`.
+- La aplicación se conecta como `pyme_app` (conexión `pgsql`). Las migraciones corren como `pyme_owner` (conexión `pgsql_owner`): sin `--database=pgsql_owner`, `migrate` falla por permisos, y eso es lo esperado.
+- Cada migración que crea una tabla da sus GRANT a `pyme_app` de forma explícita. No hay default privileges.
 
 ## Commits
 

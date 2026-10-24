@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
 
-// Solo catálogos: sin RefreshDatabase. Corre con la conexión por defecto (pyme_owner, base pyme_test).
+// Solo catálogos: sin RefreshDatabase. Corre con la conexión por defecto (pyme_app, base pyme_test).
 // pg_has_role y has_schema_privilege lanzan error SQL si el rol no existe, por eso este
 // beforeEach comprueba la existencia primero y falla con un mensaje claro antes de consultarlos.
 beforeEach(function (): void {

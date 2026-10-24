@@ -96,6 +96,8 @@
 - company_id en todas las tablas de negocio, con DEFAULT current_setting('app.company_id')::bigint para que ningún código lo asigne, y políticas RLS con USING y WITH CHECK que fallan cerrado si no hay contexto.
 - Doble barrera: RLS en Postgres y global scope de Eloquent como barrera de lectura.
 - Dos usuarios de base de datos: el dueño de las tablas, solo para migraciones, y el de la aplicación, que no es dueño, no tiene BYPASSRLS ni UPDATE o DELETE sobre asientos, líneas y bitácora. Tablas con FORCE ROW LEVEL SECURITY.
+- Las migraciones corren con la conexión pgsql_owner y la aplicación con pgsql (pyme_app). Cada migración da GRANT explícito a pyme_app, solo los privilegios que la tabla necesita. Nunca default privileges ni TRUNCATE, REFERENCES o TRIGGER para la aplicación.
+- Propuesta para producción: solo el job de migraciones recibe la credencial del dueño. Los procesos web y worker no la tienen. En desarrollo, compose la pasa a php y worker por comodidad.
 - Contexto de empresa con set_config al inicio de cada request. En jobs, el company_id viaja en el payload y el contexto se fija y se limpia por job, porque el worker es un proceso largo. Si algún día hay pooler en modo transacción u Octane, el contexto pasa a ser transaccional.
 - Claves únicas y FK compuestas con company_id.
 - Pruebas automáticas de fuga entre empresas en la API y en los jobs.

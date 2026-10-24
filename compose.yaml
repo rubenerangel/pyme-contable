@@ -17,8 +17,11 @@ x-php: &php
     DB_HOST: postgres
     DB_PORT: 5432
     DB_DATABASE: pyme
-    DB_USERNAME: pyme_owner
-    DB_PASSWORD: ${PYME_OWNER_PASSWORD:?definir en .env}
+    # The app runs as pyme_app; pgsql_owner (pyme_owner) is only for migrating.
+    DB_USERNAME: pyme_app
+    DB_PASSWORD: ${PYME_APP_PASSWORD:?definir en .env}
+    DB_OWNER_USERNAME: pyme_owner
+    DB_OWNER_PASSWORD: ${PYME_OWNER_PASSWORD:?definir en .env}
   depends_on:
     postgres:
       condition: service_healthy

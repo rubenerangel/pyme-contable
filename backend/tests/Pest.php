@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RefreshDatabaseAsOwner;
 use Tests\TestCase;
 
-// Unit no extiende TestCase de Laravel: el dominio se prueba sin framework, facades ni base de datos.
+// Unit does not extend Laravel's TestCase: the domain is tested without framework, facades or database.
 
-// Integration elige su trait por test: RefreshDatabase para cuadre e inmutabilidad,
-// DatabaseTruncation para concurrencia con commits reales.
+// Integration picks its trait per test: RefreshDatabaseAsOwner for balancing and immutability,
+// DatabaseTruncation for concurrency with real commits.
 pest()->extend(TestCase::class)->in('Integration');
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature');
+pest()->extend(TestCase::class)->use(RefreshDatabaseAsOwner::class)->in('Feature');
