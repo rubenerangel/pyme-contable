@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    # Mismas imágenes, mismo Postgres y mismo init que en desarrollo, vía Compose.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Variables de entorno de CI
+        run: |
+          printf 'POSTGRES_PASSWORD=ci\nPYME_OWNER_PASSWORD=ci\nPG_HOST_PORT=5432\nAPP_HOST_PORT=8080\nUID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env
+          cp backend/.env.example backend/.env
+
+      - name: Construir imagen PHP
+        run: docker compose build php
+
+      - name: Levantar Postgres
+        run: docker compose up -d --wait postgres
+
+      - name: Instalar dependencias
+        run: docker compose run --rm -u www-data php composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Clave de aplicación
+        run: docker compose run --rm -u www-data php php artisan key:generate --no-interaction
+
+      - name: Pest
+        run: docker compose run --rm -u www-data php vendor/bin/pest
+
+      - name: Logs de Postgres
+        if: failure()
+        run: docker compose logs postgres
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
