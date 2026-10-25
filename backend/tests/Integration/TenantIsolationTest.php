@@ -221,7 +221,7 @@ it('every public table with a company_id column has RLS enabled, forced and at l
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKey('account');
+    expect($actual)->toHaveKeys(['account', 'third_party', 'cost_center', 'construction_project']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), [true, true, true]),
@@ -248,7 +248,7 @@ it('every public table with a company_id column also has it NOT NULL with a DEFA
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKey('account');
+    expect($actual)->toHaveKeys(['account', 'third_party', 'cost_center', 'construction_project']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), [true, true]),
@@ -276,8 +276,8 @@ it('every public table with a company_id column has exactly the expected policie
         }
     }
 
-    // Guard against passing on an empty result: the exception and account must be covered.
-    expect($actual)->toHaveKeys(['account', 'audit_log']);
+    // Guard against passing on an empty result: the exception, account and the master tables must be covered.
+    expect($actual)->toHaveKeys(['account', 'audit_log', 'third_party', 'cost_center', 'construction_project']);
 
     $expected = [];
     foreach (array_keys($actual) as $table) {
@@ -331,11 +331,54 @@ it('every public tenant table, except the global and the exempt ones, has AFTER 
     }
 
     // Guard against passing on an empty result: the real audited tables and the probe must be covered.
-    expect($actual)->toHaveKeys(['account', 'audit_probe', 'document_type', 'period']);
+    expect($actual)->toHaveKeys(['account', 'audit_probe', 'document_type', 'period', 'third_party', 'cost_center', 'construction_project']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), AUDIT_EVENTS_ALL),
         $actual,
         'Table → events covered by AFTER ROW triggers on audit_log_capture (INSERT 4 + DELETE 8 + UPDATE 16 = 28). A tenant table must cover all three.',
+    );
+});
+
+it('every unique constraint and unique index of a tenant table, primary key aside, has company_id among its key columns', function (): void {
+    // A UNIQUE without company_id would answer 23505 to one company when the value exists in another one: an existence
+    // oracle across companies (docs/decisiones.md, Multi-tenant: unique keys and composite FKs with company_id). This
+    // covers constraints (they own a unique index), plain, partial and expression indexes. An expression has indkey 0,
+    // which never matches company_id, so it only counts if company_id is also a column of the index. INCLUDE columns
+    // (beyond indnkeyatts) do not enforce uniqueness and are not counted.
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select c.relname as table_name,
+               i.relname as index_name,
+               exists (
+                   select 1
+                   from pg_attribute a
+                   join unnest(x.indkey::int2[]) with ordinality as k(attnum, pos) on k.attnum = a.attnum
+                   where a.attrelid = c.oid
+                     and a.attname = 'company_id'
+                     and not a.attisdropped
+                     and k.pos <= x.indnkeyatts
+               ) as has_company_id
+        from pg_index x
+        join pg_class c on c.oid = x.indrelid
+        join pg_class i on i.oid = x.indexrelid
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relname = any(?::text[])
+          and x.indisunique
+          and not x.indisprimary
+        order by c.relname, i.relname
+        SQL, [tenantTablesLiteral()]) as $row) {
+        $actual[$row->table_name.': '.$row->index_name] = (bool) $row->has_company_id;
+    }
+
+    // Guard against passing on an empty result: the unique keys of account and third_party must be seen.
+    $seenTables = array_unique(array_map(fn (string $key) => explode(': ', $key)[0], array_keys($actual)));
+    expect($seenTables)->toContain('account', 'third_party');
+
+    $this->assertSame(
+        [],
+        array_keys(array_filter($actual, fn (bool $hasCompanyId) => ! $hasCompanyId)),
+        'Unique constraints and unique indexes ("table: index") of tenant tables with no company_id among their key columns.',
     );
 });

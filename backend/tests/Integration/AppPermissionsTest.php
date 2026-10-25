@@ -9,6 +9,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 use Tests\Support\AccountFixtures;
+use Tests\Support\MasterDataFixtures;
 use Tests\Support\TenantCatalog;
 
 // The application runs as pyme_app (default connection) and migrations run as pyme_owner
@@ -19,7 +20,8 @@ uses(RefreshDatabaseAsOwner::class);
 
 // Complete map of every table in public (except migrations) to the privileges pyme_app must have on it, in
 // alphabetical order. A new table without an entry here makes the privileges test fail.
-// account, document_counter, document_type and period have no table-level INSERT or UPDATE: pyme_app inserts only the
+// account, construction_project, cost_center, document_counter, document_type, period and third_party have no
+// table-level INSERT or UPDATE: pyme_app inserts only the
 // columns declared in EXPECTED_COLUMN_INSERTS (never id or company_id, which take their DEFAULT) and updates only the
 // columns declared in EXPECTED_COLUMN_UPDATES.
 // audit_log is read-only for pyme_app: it is written by SECURITY DEFINER functions that run as pyme_owner, so it has no
@@ -35,6 +37,8 @@ const EXPECTED_TABLE_PRIVILEGES = [
     'cache_locks' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'companies' => ['INSERT', 'SELECT', 'UPDATE'],
     'company_user' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'construction_project' => ['DELETE', 'SELECT'],
+    'cost_center' => ['DELETE', 'SELECT'],
     'document_counter' => ['SELECT'],
     'document_type' => ['SELECT'],
     'failed_jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
@@ -43,6 +47,7 @@ const EXPECTED_TABLE_PRIVILEGES = [
     'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'period' => ['SELECT'],
     'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'third_party' => ['DELETE', 'SELECT'],
     'users' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
 ];
 
@@ -66,9 +71,23 @@ const EXPECTED_COLUMN_INSERTS = [
     ],
     'audit_log' => [],
     'audit_probe' => ['label'],
+    'construction_project' => ['code', 'is_active', 'name'],
+    'cost_center' => ['code', 'is_active', 'name'],
     'document_counter' => ['document_type_id', 'last_number', 'year'],
     'document_type' => ['code', 'name', 'resets_yearly'],
     'period' => ['number', 'status', 'year'],
+    'third_party' => [
+        'business_name',
+        'country',
+        'first_name',
+        'first_surname',
+        'id_number',
+        'id_type',
+        'is_active',
+        'middle_names',
+        'person_type',
+        'second_surname',
+    ],
 ];
 
 // Tables with a company_id column on which pyme_app may insert id or company_id, each for its own reason.
@@ -97,9 +116,23 @@ const EXPECTED_COLUMN_UPDATES = [
     ],
     'audit_log' => [],
     'audit_probe' => ['label'],
+    'construction_project' => ['code', 'is_active', 'name'],
+    'cost_center' => ['code', 'is_active', 'name'],
     'document_counter' => ['last_number'],
     'document_type' => ['name'],
     'period' => ['status'],
+    'third_party' => [
+        'business_name',
+        'country',
+        'first_name',
+        'first_surname',
+        'id_number',
+        'id_type',
+        'is_active',
+        'middle_names',
+        'person_type',
+        'second_surname',
+    ],
 ];
 
 const TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'];
@@ -259,7 +292,7 @@ it('pyme_app cannot insert id or company_id on any public table with a company_i
     $tenantTables = TenantCatalog::tablesWithCompanyId();
 
     // Guard against passing on an empty result: the catalog must see the tenant tables this rule is about.
-    foreach (['account', 'audit_log', 'document_counter', 'document_type', 'period'] as $table) {
+    foreach (['account', 'audit_log', 'construction_project', 'cost_center', 'document_counter', 'document_type', 'period', 'third_party'] as $table) {
         $this->assertContains($table, $tenantTables, "The catalog query must find $table among the tables with a company_id column.");
     }
 
@@ -358,11 +391,38 @@ it('pyme_app can insert into document_counter without an id and gets one (USAGE 
     $this->assertGreaterThan(0, (int) $id, 'The insert into document_counter as pyme_app must return a generated id.');
 });
 
+it('pyme_app can insert into third_party without an id and gets one (USAGE on third_party_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('third_party')->insertGetId(MasterDataFixtures::thirdPartyRow());
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into third_party as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into cost_center without an id and gets one (USAGE on cost_center_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('cost_center')->insertGetId(MasterDataFixtures::costCenterRow());
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into cost_center as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into construction_project without an id and gets one (USAGE on construction_project_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('construction_project')->insertGetId(MasterDataFixtures::constructionProjectRow());
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into construction_project as pyme_app must return a generated id.');
+});
+
 const TENANT_TABLES_WITH_COLUMN_INSERTS = [
     'account' => ['account'],
     'period' => ['period'],
     'document_type' => ['document_type'],
     'document_counter' => ['document_counter'],
+    'third_party' => ['third_party'],
+    'cost_center' => ['cost_center'],
+    'construction_project' => ['construction_project'],
 ];
 
 /**
@@ -376,6 +436,9 @@ function appPermissionsMinimalRow(string $table): array
     return match ($table) {
         'account' => AccountFixtures::minimalRow(),
         'period' => ['year' => 2026, 'number' => 1],
+        'third_party' => MasterDataFixtures::thirdPartyRow(),
+        'cost_center' => MasterDataFixtures::costCenterRow(),
+        'construction_project' => MasterDataFixtures::constructionProjectRow(),
         'document_type' => ['code' => 'INV', 'name' => 'Invoice', 'resets_yearly' => true],
         // last_number must be 1 on insert (counter trigger).
         'document_counter' => [

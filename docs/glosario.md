@@ -16,7 +16,11 @@ Los términos marcados "revisar" se confirman cuando se modelen.
 | naturaleza de la cuenta | normal_balance | Enum NormalBalance (debit, credit). |
 | tercero | third_party | |
 | centro de costo | cost_center | |
-| obra | construction_project | revisar |
+| tipo de documento de identidad | id_type | Código DIAN de dos dígitos (31 es NIT). |
+| número de identificación | id_number | Sin DV. |
+| tipo de persona | person_type | Enum PersonType (natural, legal). |
+| razón social | business_name | |
+| obra | construction_project | |
 | municipio | municipality | |
 | concepto | concept | revisar |
 | consecutivo | document_number | revisar. La tabla de contadores es document_counter. |
