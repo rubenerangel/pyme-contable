@@ -11,10 +11,11 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Tests\RefreshDatabaseAsOwner;
+use Tests\Support\AccountFixtures;
 use Tests\Support\ProbeJobRecord;
-use Tests\Support\ReadProbeLabelsJob;
-use Tests\Support\ReadProbeLabelsThenFailJob;
-use Tests\Support\ReadProbeLabelsWithoutMiddlewareJob;
+use Tests\Support\ReadAccountCodesJob;
+use Tests\Support\ReadAccountCodesThenFailJob;
+use Tests\Support\ReadAccountCodesWithoutMiddlewareJob;
 
 // Company and user context in jobs: company_id and user_id travel in the payload, the WithCompanyContext job middleware enters and leaves
 // the context per job, and a JobProcessing listener clears any leftover context (company and user) before every job (the worker is a
@@ -23,6 +24,8 @@ use Tests\Support\ReadProbeLabelsWithoutMiddlewareJob;
 // SyncJob unserializes it in CallQueuedHandler and runs its middleware() through a Pipeline, and SyncQueue raises
 // JobProcessing before firing the job. The probe jobs implement ShouldQueue; without it dispatch runs them inline and
 // no queue event is raised.
+// The probe jobs read account with the query builder on purpose: this file proves RLS in the context of a job, not the
+// global scope of the Account model (that one comes with the model).
 uses(RefreshDatabaseAsOwner::class);
 
 beforeEach(function (): void {
@@ -30,8 +33,8 @@ beforeEach(function (): void {
 });
 
 /**
- * Creates companies A and B with two tenant_probe rows each (a-1, a-2, b-1, b-2) through DatabaseCompanyContext, and
- * a user (the one that originates the jobs). Leaves the context cleared.
+ * Creates companies A and B with two accounts each (codes a-1, a-2, b-1, b-2) through DatabaseCompanyContext, and
+ * a user (the one that originates the jobs, and the one the audit log of account needs in context to record the inserts). Leaves the context cleared.
  *
  * @return array{a: Company, b: Company, user: User}
  */
@@ -43,7 +46,7 @@ function seedCompaniesForJobs(): array
 
     foreach ($companies as $key => $company) {
         $context->enter($company->id, $user->id);
-        DB::table('tenant_probe')->insert([['label' => $key.'-1'], ['label' => $key.'-2']]);
+        DB::table('account')->insert([AccountFixtures::minimalRow($key.'-1'), AccountFixtures::minimalRow($key.'-2')]);
         $context->leave();
     }
 
@@ -58,11 +61,11 @@ function dispatchJob(object $job): void
 it('shows a job dispatched for company A only the rows of A, and one for B only the rows of B', function (): void {
     ['a' => $companyA, 'b' => $companyB, 'user' => $user] = seedCompaniesForJobs();
 
-    dispatchJob(new ReadProbeLabelsJob($companyA->id, $user->id));
-    $seenByJobA = ProbeJobRecord::$labels;
+    dispatchJob(new ReadAccountCodesJob($companyA->id, $user->id));
+    $seenByJobA = ProbeJobRecord::$codes;
 
-    dispatchJob(new ReadProbeLabelsJob($companyB->id, $user->id));
-    $seenByJobB = ProbeJobRecord::$labels;
+    dispatchJob(new ReadAccountCodesJob($companyB->id, $user->id));
+    $seenByJobB = ProbeJobRecord::$codes;
 
     expect(['runs' => ProbeJobRecord::$runs, 'a' => $seenByJobA, 'b' => $seenByJobB])->toBe([
         'runs' => 2,
@@ -74,7 +77,7 @@ it('shows a job dispatched for company A only the rows of A, and one for B only 
 it('leaves no company and no user in context after the job is processed', function (): void {
     ['a' => $companyA, 'user' => $user] = seedCompaniesForJobs();
 
-    dispatchJob(new ReadProbeLabelsJob($companyA->id, $user->id));
+    dispatchJob(new ReadAccountCodesJob($companyA->id, $user->id));
 
     expect([
         'ran' => ProbeJobRecord::$runs,
@@ -93,14 +96,14 @@ it('lets the exception of a job that fails after entering reach the caller and l
 
     $thrown = null;
     try {
-        dispatchJob(new ReadProbeLabelsThenFailJob($companyA->id, $user->id));
+        dispatchJob(new ReadAccountCodesThenFailJob($companyA->id, $user->id));
     } catch (RuntimeException $e) {
         $thrown = $e;
     }
 
     expect([
         'message' => $thrown?->getMessage(),
-        'seenBeforeFailing' => ProbeJobRecord::$labels,
+        'seenBeforeFailing' => ProbeJobRecord::$codes,
         'userSeenBeforeFailing' => ProbeJobRecord::$userSetting,
         'current' => $context->current(),
         'currentUser' => $context->currentUser(),
@@ -119,7 +122,7 @@ it('raises JobProcessing on the sync queue before running the job (premise of th
         $processing[] = ['ranYet' => ProbeJobRecord::$runs, 'connection' => $event->connectionName];
     });
 
-    dispatchJob(new ReadProbeLabelsWithoutMiddlewareJob);
+    dispatchJob(new ReadAccountCodesWithoutMiddlewareJob);
 
     expect($processing)->toBe([['ranYet' => 0, 'connection' => 'sync']]);
 });
@@ -130,11 +133,11 @@ it('clears a leftover company context before a job without middleware, so it see
     // Simulates what remains of a worker process that died halfway through a previous job.
     app(DatabaseCompanyContext::class)->enter($companyA->id, $user->id);
 
-    dispatchJob(new ReadProbeLabelsWithoutMiddlewareJob);
+    dispatchJob(new ReadAccountCodesWithoutMiddlewareJob);
 
-    expect(['ran' => ProbeJobRecord::$runs, 'labels' => ProbeJobRecord::$labels])->toBe([
+    expect(['ran' => ProbeJobRecord::$runs, 'codes' => ProbeJobRecord::$codes])->toBe([
         'ran' => 1,
-        'labels' => [],
+        'codes' => [],
     ]);
 });
 
@@ -144,7 +147,7 @@ it('does not let a job without middleware inherit the user left in context by a 
     // Simulates a worker whose previous job died without leaving the context.
     app(DatabaseCompanyContext::class)->enter($companyA->id, $user->id);
 
-    dispatchJob(new ReadProbeLabelsWithoutMiddlewareJob);
+    dispatchJob(new ReadAccountCodesWithoutMiddlewareJob);
 
     expect([
         'ran' => ProbeJobRecord::$runs,
@@ -160,10 +163,10 @@ it('does not let a job without middleware inherit the user left in context by a 
 it('does not let a job without middleware inherit the user of a job that ran just before it', function (): void {
     ['a' => $companyA, 'user' => $user] = seedCompaniesForJobs();
 
-    dispatchJob(new ReadProbeLabelsJob($companyA->id, $user->id));
+    dispatchJob(new ReadAccountCodesJob($companyA->id, $user->id));
     $userSeenByFirst = ProbeJobRecord::$userSetting;
 
-    dispatchJob(new ReadProbeLabelsWithoutMiddlewareJob);
+    dispatchJob(new ReadAccountCodesWithoutMiddlewareJob);
 
     expect([
         'runs' => ProbeJobRecord::$runs,
@@ -180,10 +183,10 @@ it('shows the job the user of its payload, and a job dispatched for another user
     ['a' => $companyA, 'user' => $user] = seedCompaniesForJobs();
     $otherUser = User::factory()->create();
 
-    dispatchJob(new ReadProbeLabelsJob($companyA->id, $user->id));
+    dispatchJob(new ReadAccountCodesJob($companyA->id, $user->id));
     $seenByFirst = [ProbeJobRecord::$companySetting, ProbeJobRecord::$userSetting];
 
-    dispatchJob(new ReadProbeLabelsJob($companyA->id, $otherUser->id));
+    dispatchJob(new ReadAccountCodesJob($companyA->id, $otherUser->id));
     $seenBySecond = [ProbeJobRecord::$companySetting, ProbeJobRecord::$userSetting];
 
     expect(['runs' => ProbeJobRecord::$runs, 'first' => $seenByFirst, 'second' => $seenBySecond])->toBe([
@@ -197,7 +200,7 @@ it('middleware leaves the company and the user even when the next step throws', 
     ['a' => $companyA, 'user' => $user] = seedCompaniesForJobs();
     $context = app(DatabaseCompanyContext::class);
     $middleware = new WithCompanyContext($companyA->id, $user->id);
-    $job = new ReadProbeLabelsJob($companyA->id, $user->id);
+    $job = new ReadAccountCodesJob($companyA->id, $user->id);
 
     $currentInsideNext = null;
     $userInsideNext = null;
@@ -235,7 +238,7 @@ it('middleware leaves the company and the user even when the next step throws', 
 it('middleware enters the company and the user before running next and leaves them after when next succeeds', function (): void {
     ['b' => $companyB, 'user' => $user] = seedCompaniesForJobs();
     $context = app(DatabaseCompanyContext::class);
-    $job = new ReadProbeLabelsJob($companyB->id, $user->id);
+    $job = new ReadAccountCodesJob($companyB->id, $user->id);
 
     $currentInsideNext = null;
     $userInsideNext = null;
@@ -263,19 +266,19 @@ it('middleware enters the company and the user before running next and leaves th
 
 it('carries company_id and user_id in the serialized payload: the job that runs is a copy and enters the right company and user', function (): void {
     ['b' => $companyB, 'user' => $user] = seedCompaniesForJobs();
-    $dispatched = new ReadProbeLabelsJob($companyB->id, $user->id);
+    $dispatched = new ReadAccountCodesJob($companyB->id, $user->id);
 
     dispatchJob($dispatched);
 
     expect([
         'isCopy' => ProbeJobRecord::$runningInstanceId !== spl_object_id($dispatched),
         'ran' => ProbeJobRecord::$runs,
-        'labels' => ProbeJobRecord::$labels,
+        'codes' => ProbeJobRecord::$codes,
         'userSeen' => ProbeJobRecord::$userSetting,
     ])->toBe([
         'isCopy' => true,
         'ran' => 1,
-        'labels' => ['b-1', 'b-2'],
+        'codes' => ['b-1', 'b-2'],
         'userSeen' => (string) $user->id,
     ]);
 });

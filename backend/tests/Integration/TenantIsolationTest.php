@@ -2,23 +2,22 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
+use Tests\Support\AccountFixtures;
+use Tests\Support\TenantCatalog;
 
-// Row level security by company on the tests-only table tenant_probe. The context is set with raw SQL on purpose:
-// these tests prove RLS in Postgres without depending on DatabaseCompanyContext. A SQL error aborts the
+// Row level security by company on account, the reference table of the pattern. The context is set with raw SQL on
+// purpose: these tests prove RLS in Postgres without depending on DatabaseCompanyContext. A SQL error aborts the
 // RefreshDatabase transaction in Postgres, so each failing statement lives in its own test.
 uses(RefreshDatabaseAsOwner::class);
 
-// Tables with a company_id column that are global on purpose (no RLS): the membership is read before there is an
-// active company. Adding a table here is a design decision, see docs/decisiones.md, Multi-tenant.
-const GLOBAL_TABLES_WITH_COMPANY_ID = ['company_user'];
-
-// Tables with a company_id column that carry no audit trigger on purpose: audit_log is the ledger itself,
-// document_counter changes on every posting (the document will be audited) and tenant_probe is the RLS-only probe
-// (audit_probe is the one that carries the triggers).
-const AUDIT_EXEMPT_TABLES = ['audit_log', 'document_counter', 'tenant_probe'];
+// Tables with a company_id column that carry no audit trigger on purpose: audit_log is the ledger itself and
+// document_counter changes on every posting (the document will be audited). audit_probe is the tests-only table that
+// carries the triggers.
+const AUDIT_EXEMPT_TABLES = ['audit_log', 'document_counter'];
 
 // The company predicate every tenant policy must use, as Postgres 17 prints it in pg_policies. If a Postgres upgrade
 // changes how it prints this expression, update it here after checking that the meaning is the same.
@@ -43,22 +42,27 @@ const POLICY_EXCEPTIONS = [
 const AUDIT_EVENTS_ALL = 4 + 8 + 16;
 
 /**
- * Sets (or clears, with null) the company context of the connection using raw SQL.
+ * Sets (or clears, with null) the company and the user context of the connection using raw SQL. The audit log of
+ * account needs app.user_id on insert and delete.
  */
-function setTenantContext(?int $companyId): void
+function setTenantContext(?int $companyId, ?int $userId = null): void
 {
-    DB::select("select set_config('app.company_id', ?, false)", [$companyId === null ? '' : (string) $companyId]);
+    DB::select(
+        "select set_config('app.company_id', ?, false), set_config('app.user_id', ?, false)",
+        [$companyId === null ? '' : (string) $companyId, $userId === null ? '' : (string) $userId],
+    );
 }
 
 /**
- * Inserts two companies and one tenant_probe row for each, setting the context before each insert and never
- * passing company_id. Leaves the context cleared.
+ * Inserts a user, two companies and two account rows for each (a-1, a-2, b-1, b-2 as code), setting the context
+ * before each insert and never passing company_id. Leaves the context cleared.
  *
- * @return array{a: int, b: int}
+ * @return array{a: int, b: int, user: int}
  */
-function seedTwoCompaniesWithProbeRows(): array
+function seedTwoCompaniesWithAccounts(): array
 {
     $now = now();
+    $userId = User::factory()->create()->id;
     $ids = [];
 
     foreach (['a' => 'Company A SAS', 'b' => 'Company B SAS'] as $key => $name) {
@@ -70,36 +74,53 @@ function seedTwoCompaniesWithProbeRows(): array
     }
 
     foreach ($ids as $key => $companyId) {
-        setTenantContext($companyId);
-        DB::table('tenant_probe')->insert([
-            ['label' => $key.'-1'],
-            ['label' => $key.'-2'],
+        setTenantContext($companyId, $userId);
+        DB::table('account')->insert([
+            AccountFixtures::minimalRow($key.'-1'),
+            AccountFixtures::minimalRow($key.'-2'),
         ]);
     }
 
-    setTenantContext(null);
+    setTenantContext(null, null);
 
-    return $ids;
+    return [...$ids, 'user' => $userId];
 }
 
 /**
- * Labels visible through pyme_app in the current context, sorted.
+ * Account codes visible through pyme_app in the current context, sorted.
  *
  * @return list<string>
  */
-function visibleProbeLabels(): array
+function visibleAccountCodes(): array
 {
-    return DB::table('tenant_probe')->orderBy('label')->pluck('label')->all();
+    return DB::table('account')->orderBy('code')->pluck('code')->all();
+}
+
+/**
+ * The tables with a company_id column minus the global ones and $alsoExcluded, as a Postgres text[] literal to filter
+ * with c.relname = any(?::text[]).
+ *
+ * @param  list<string>  $alsoExcluded
+ */
+function tenantTablesLiteral(array $alsoExcluded = []): string
+{
+    $tables = array_diff(
+        TenantCatalog::tablesWithCompanyId(),
+        TenantCatalog::GLOBAL_TABLES_WITH_COMPANY_ID,
+        $alsoExcluded,
+    );
+
+    return '{'.implode(',', $tables).'}';
 }
 
 it('shows only the rows of the active company', function (): void {
-    $ids = seedTwoCompaniesWithProbeRows();
+    $ids = seedTwoCompaniesWithAccounts();
 
     setTenantContext($ids['a']);
-    $seenWithA = visibleProbeLabels();
+    $seenWithA = visibleAccountCodes();
 
     setTenantContext($ids['b']);
-    $seenWithB = visibleProbeLabels();
+    $seenWithB = visibleAccountCodes();
 
     expect(['a' => $seenWithA, 'b' => $seenWithB])->toBe([
         'a' => ['a-1', 'a-2'],
@@ -108,67 +129,71 @@ it('shows only the rows of the active company', function (): void {
 });
 
 it('shows no rows when the context is empty, even if there is data (fail closed)', function (): void {
-    seedTwoCompaniesWithProbeRows();
+    seedTwoCompaniesWithAccounts();
 
-    setTenantContext(null);
+    setTenantContext(null, null);
 
     expect(DB::select("select current_setting('app.company_id', true) as value")[0]->value)->toBe('');
-    expect(DB::table('tenant_probe')->count())->toBe(0);
+    expect(DB::table('account')->count())->toBe(0);
 });
 
 it('shows no rows when the context was never set in the session (fail closed)', function (): void {
-    seedTwoCompaniesWithProbeRows();
+    seedTwoCompaniesWithAccounts();
 
     // reset_config-style reset: RESET removes the session value, so current_setting(..., true) is null or ''.
     DB::statement('reset app.company_id');
 
-    expect(DB::table('tenant_probe')->count())->toBe(0);
+    expect(DB::table('account')->count())->toBe(0);
 });
 
 it('stores the active company in company_id when the insert does not pass it', function (): void {
-    $ids = seedTwoCompaniesWithProbeRows();
+    $ids = seedTwoCompaniesWithAccounts();
 
-    setTenantContext($ids['a']);
-    DB::table('tenant_probe')->insert(['label' => 'default-company']);
+    setTenantContext($ids['a'], $ids['user']);
+    DB::table('account')->insert(AccountFixtures::minimalRow('default-company'));
 
-    $stored = DB::table('tenant_probe')->where('label', 'default-company')->value('company_id');
+    $stored = DB::table('account')->where('code', 'default-company')->value('company_id');
 
     expect((int) $stored)->toBe($ids['a']);
 });
 
-it('rejects an insert without company_id and without context (RLS policy, SQLSTATE 42501, fail closed)', function (): void {
-    seedTwoCompaniesWithProbeRows();
-    setTenantContext(null);
+it('rejects an insert without context (RLS policy, SQLSTATE 42501, fail closed)', function (): void {
+    seedTwoCompaniesWithAccounts();
+    setTenantContext(null, null);
 
-    // The WITH CHECK of the policy is evaluated before the NOT NULL constraint, so the policy rejects it first.
-    expect(fn () => DB::table('tenant_probe')->insert(['label' => 'no-context']))
-        ->toThrow(fn (QueryException $e) => expect($e->errorInfo[0])->toBe('42501'));
+    // The WITH CHECK of the policy is evaluated before the NOT NULL constraint, so the policy rejects it first. The
+    // message tells it apart from the other 42501 causes (a missing privilege, audit_log_capture without app.user_id):
+    // a WITH CHECK (true) would let the row reach NOT NULL (23502) and this test would see it.
+    expect(fn () => DB::table('account')->insert(AccountFixtures::minimalRow('no-context')))
+        ->toThrow(function (QueryException $e): void {
+            expect($e->errorInfo[0])->toBe('42501');
+            expect($e->getMessage())->toContain('new row violates row-level security policy for table "account"');
+        });
 });
 
-it('rejects an insert with the company_id of another company (RLS violation, SQLSTATE 42501)', function (): void {
-    $ids = seedTwoCompaniesWithProbeRows();
-    setTenantContext($ids['a']);
+// Not tested here: an insert with the company_id of another company. pyme_app has no INSERT privilege on company_id,
+// so it cannot even try: AppPermissionsTest covers it (dataset with an explicit company_id, 42501 "permission denied").
+// The WITH CHECK of the policy stays pinned by the exact policies test below and by the insert without context above.
 
-    expect(fn () => DB::table('tenant_probe')->insert(['label' => 'forged', 'company_id' => $ids['b']]))
-        ->toThrow(fn (QueryException $e) => expect($e->errorInfo[0])->toBe('42501'));
-});
+it('rejects moving a row to another company with an update (no UPDATE privilege on company_id, SQLSTATE 42501)', function (): void {
+    $ids = seedTwoCompaniesWithAccounts();
+    setTenantContext($ids['a'], $ids['user']);
 
-it('rejects moving a row to another company with an update (RLS violation, SQLSTATE 42501)', function (): void {
-    $ids = seedTwoCompaniesWithProbeRows();
-    setTenantContext($ids['a']);
-
-    expect(fn () => DB::table('tenant_probe')->where('label', 'a-1')->update(['company_id' => $ids['b']]))
-        ->toThrow(fn (QueryException $e) => expect($e->errorInfo[0])->toBe('42501'));
+    expect(fn () => DB::table('account')->where('code', 'a-1')->update(['company_id' => $ids['b']]))
+        ->toThrow(function (QueryException $e): void {
+            expect($e->errorInfo[0])->toBe('42501');
+            expect($e->getMessage())->toContain('permission denied for table account');
+        });
 });
 
 it('deletes nothing of another company and its rows survive', function (): void {
-    $ids = seedTwoCompaniesWithProbeRows();
+    $ids = seedTwoCompaniesWithAccounts();
 
-    setTenantContext($ids['a']);
-    $affected = DB::table('tenant_probe')->where('company_id', $ids['b'])->delete();
+    setTenantContext($ids['a'], $ids['user']);
+    $affected = DB::table('account')->where('company_id', $ids['b'])->delete();
 
     setTenantContext($ids['b']);
-    $survivors = visibleProbeLabels();
+    $survivors = visibleAccountCodes();
 
     expect(['affected' => $affected, 'survivors' => $survivors])->toBe([
         'affected' => 0,
@@ -189,22 +214,14 @@ it('every public table with a company_id column has RLS enabled, forced and at l
         from pg_class c
         join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public'
-          and c.relkind in ('r', 'p')
-          and exists (
-              select 1 from pg_attribute a
-              where a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
-          )
+          and c.relname = any(?::text[])
         order by c.relname
-        SQL) as $row) {
-        if (in_array($row->relname, GLOBAL_TABLES_WITH_COMPANY_ID, true)) {
-            continue;
-        }
-
+        SQL, [tenantTablesLiteral()]) as $row) {
         $actual[$row->relname] = [(bool) $row->rls, (bool) $row->forced, (bool) $row->has_policy];
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKey('tenant_probe');
+    expect($actual)->toHaveKey('account');
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), [true, true, true]),
@@ -224,18 +241,14 @@ it('every public table with a company_id column also has it NOT NULL with a DEFA
         join pg_attribute a on a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
         left join pg_attrdef d on d.adrelid = c.oid and d.adnum = a.attnum
         where n.nspname = 'public'
-          and c.relkind in ('r', 'p')
+          and c.relname = any(?::text[])
         order by c.relname
-        SQL) as $row) {
-        if (in_array($row->relname, GLOBAL_TABLES_WITH_COMPANY_ID, true)) {
-            continue;
-        }
-
+        SQL, [tenantTablesLiteral()]) as $row) {
         $actual[$row->relname] = [(bool) $row->not_null, (bool) $row->default_from_context];
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKey('tenant_probe');
+    expect($actual)->toHaveKey('account');
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), [true, true]),
@@ -255,24 +268,16 @@ it('every public table with a company_id column has exactly the expected policie
         join pg_namespace n on n.oid = c.relnamespace
         left join pg_policies p on p.schemaname = n.nspname and p.tablename = c.relname
         where n.nspname = 'public'
-          and c.relkind in ('r', 'p')
-          and exists (
-              select 1 from pg_attribute a
-              where a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
-          )
-        SQL) as $row) {
-        if (in_array($row->relname, GLOBAL_TABLES_WITH_COMPANY_ID, true)) {
-            continue;
-        }
-
+          and c.relname = any(?::text[])
+        SQL, [tenantTablesLiteral()]) as $row) {
         $actual[$row->relname] ??= [];
         if ($row->policy !== null) {
             $actual[$row->relname][] = $row->policy;
         }
     }
 
-    // Guard against passing on an empty result: the exception and the probe must be covered.
-    expect($actual)->toHaveKeys(['audit_log', 'tenant_probe']);
+    // Guard against passing on an empty result: the exception and account must be covered.
+    expect($actual)->toHaveKeys(['account', 'audit_log']);
 
     $expected = [];
     foreach (array_keys($actual) as $table) {
@@ -318,23 +323,15 @@ it('every public tenant table, except the global and the exempt ones, has AFTER 
         left join pg_trigger t on t.tgrelid = c.oid and not t.tgisinternal
         left join pg_proc p on p.oid = t.tgfoid
         where n.nspname = 'public'
-          and c.relkind in ('r', 'p')
-          and exists (
-              select 1 from pg_attribute a
-              where a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
-          )
+          and c.relname = any(?::text[])
         group by c.relname
         order by c.relname
-        SQL) as $row) {
-        if (in_array($row->relname, [...GLOBAL_TABLES_WITH_COMPANY_ID, ...AUDIT_EXEMPT_TABLES], true)) {
-            continue;
-        }
-
+        SQL, [tenantTablesLiteral(AUDIT_EXEMPT_TABLES)]) as $row) {
         $actual[$row->relname] = (int) $row->events;
     }
 
     // Guard against passing on an empty result: the real audited tables and the probe must be covered.
-    expect($actual)->toHaveKeys(['audit_probe', 'document_type', 'period']);
+    expect($actual)->toHaveKeys(['account', 'audit_probe', 'document_type', 'period']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), AUDIT_EVENTS_ALL),

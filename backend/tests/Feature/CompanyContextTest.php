@@ -8,11 +8,13 @@ use App\Models\Company;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Tests\Support\AccountFixtures;
 
 // SetCompanyContext on business routes: reads active_company_id from the session, revalidates the membership on every
 // request and enters the database company context (RLS) for the duration of the request only. The probe routes use
 // the same stack the business routes will use (prefix api/v1, middleware api + auth:sanctum + SetCompanyContext) and
-// read tenant_probe, a tests-only table with RLS by company.
+// read account with the query builder on purpose: this file proves RLS, not the global scope of the Account model
+// (that one comes with the model).
 // The user of the connection (app.user_id) follows the same lifecycle: it is the authenticated user inside the
 // request and cleared after it.
 // Sanctum 4.3.3, Laravel 13 docs (Context7 /laravel/docs/__branch__13.x): stateful by Origin header; the user comes
@@ -23,7 +25,7 @@ beforeEach(function (): void {
         ->middleware(['api', 'auth:sanctum', SetCompanyContext::class])
         ->group(function (): void {
             Route::get('/probe', fn () => response()->json([
-                'labels' => DB::table('tenant_probe')->orderBy('label')->pluck('label')->all(),
+                'codes' => DB::table('account')->orderBy('code')->pluck('code')->all(),
             ]));
 
             Route::get('/probe-context', fn () => response()->json([
@@ -33,7 +35,7 @@ beforeEach(function (): void {
 
             Route::get('/probe-fails', function (): never {
                 // Reads inside the context first, so the exception happens after entering it.
-                DB::table('tenant_probe')->count();
+                DB::table('account')->count();
 
                 throw new RuntimeException('Probe failure after entering the company context.');
             });
@@ -49,12 +51,12 @@ function companyContextSpaHeaders(): array
 }
 
 /**
- * Creates companies A and B with two tenant_probe rows each (a-1, a-2, b-1, b-2), entering and leaving the context
+ * Creates companies A and B with two accounts each (codes a-1, a-2, b-1, b-2), entering and leaving the context
  * through DatabaseCompanyContext. Leaves the context cleared.
  *
  * @return array{a: Company, b: Company}
  */
-function seedCompaniesWithProbeRows(): array
+function seedCompaniesWithAccounts(): array
 {
     $context = app(DatabaseCompanyContext::class);
     $companies = ['a' => Company::factory()->create(), 'b' => Company::factory()->create()];
@@ -62,7 +64,7 @@ function seedCompaniesWithProbeRows(): array
 
     foreach ($companies as $key => $company) {
         $context->enter($company->id, $seedUser->id);
-        DB::table('tenant_probe')->insert([['label' => $key.'-1'], ['label' => $key.'-2']]);
+        DB::table('account')->insert([AccountFixtures::minimalRow($key.'-1'), AccountFixtures::minimalRow($key.'-2')]);
         $context->leave();
     }
 
@@ -84,16 +86,16 @@ function memberOf(array $companies): User
 }
 
 it('shows only the rows of the active company and switches to the other one after activating it', function (): void {
-    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithProbeRows();
+    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA, $companyB]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
 
     $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
-    $seenWithA = $this->getJson('/api/v1/probe')->assertOk()->json('labels');
+    $seenWithA = $this->getJson('/api/v1/probe')->assertOk()->json('codes');
 
     $this->postJson('/api/v1/active-company', ['company_id' => $companyB->id])->assertNoContent();
-    $seenWithB = $this->getJson('/api/v1/probe')->assertOk()->json('labels');
+    $seenWithB = $this->getJson('/api/v1/probe')->assertOk()->json('codes');
 
     expect(['a' => $seenWithA, 'b' => $seenWithB])->toBe([
         'a' => ['a-1', 'a-2'],
@@ -102,20 +104,20 @@ it('shows only the rows of the active company and switches to the other one afte
 });
 
 it('does not let a user activate a company they are not a member of, and keeps showing only their own', function (): void {
-    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithProbeRows();
+    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
 
     $this->postJson('/api/v1/active-company', ['company_id' => $companyA->id])->assertNoContent();
     $this->postJson('/api/v1/active-company', ['company_id' => $companyB->id])->assertForbidden();
-    $seen = $this->getJson('/api/v1/probe')->assertOk()->json('labels');
+    $seen = $this->getJson('/api/v1/probe')->assertOk()->json('codes');
 
     expect($seen)->toBe(['a-1', 'a-2']);
 });
 
 it('answers 409 when the session has no active company, and enters no context', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $response = $this->actingAs($user)
@@ -130,7 +132,7 @@ it('answers 409 when the session has no active company, and enters no context', 
 });
 
 it('answers 403 and forgets the active company when the membership was removed after activating it', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -149,7 +151,7 @@ it('answers 403 and forgets the active company when the membership was removed a
 });
 
 it('then answers 409 on the next request after the membership was removed (the stale company is gone)', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -161,7 +163,7 @@ it('then answers 409 on the next request after the membership was removed (the s
 });
 
 it('leaves no company in the database context after any request', function (): void {
-    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithProbeRows();
+    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
     $context = app(DatabaseCompanyContext::class);
     $afterEach = [];
@@ -189,7 +191,7 @@ it('leaves no company in the database context after any request', function (): v
 });
 
 it('leaves the context cleared even if the route throws after entering it', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -203,7 +205,7 @@ it('leaves the context cleared even if the route throws after entering it', func
 });
 
 it('leaves the context cleared when the exception crosses the middleware (finally, not just a rendered 500)', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -219,7 +221,7 @@ it('leaves the context cleared when the exception crosses the middleware (finall
 });
 
 it('does not leak the previous request context into the next one after a failure', function (): void {
-    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithProbeRows();
+    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA, $companyB]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -227,13 +229,13 @@ it('does not leak the previous request context into the next one after a failure
     $this->getJson('/api/v1/probe-fails')->assertStatus(500);
 
     $this->postJson('/api/v1/active-company', ['company_id' => $companyB->id])->assertNoContent();
-    $seen = $this->getJson('/api/v1/probe')->assertOk()->json('labels');
+    $seen = $this->getJson('/api/v1/probe')->assertOk()->json('codes');
 
     expect($seen)->toBe(['b-1', 'b-2']);
 });
 
 it('rejects an unauthenticated request with 401 and enters no context', function (): void {
-    seedCompaniesWithProbeRows();
+    seedCompaniesWithAccounts();
 
     $response = $this->withHeaders(companyContextSpaHeaders())->getJson('/api/v1/probe');
 
@@ -242,7 +244,7 @@ it('rejects an unauthenticated request with 401 and enters no context', function
 });
 
 it('sets the authenticated user in the connection context inside a business request, next to the active company', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -257,7 +259,7 @@ it('sets the authenticated user in the connection context inside a business requ
 });
 
 it('leaves no user in the database context after any request', function (): void {
-    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithProbeRows();
+    ['a' => $companyA, 'b' => $companyB] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
     $context = app(DatabaseCompanyContext::class);
     $afterEach = [];
@@ -287,7 +289,7 @@ it('leaves no user in the database context after any request', function (): void
 });
 
 it('leaves the user cleared even if the route throws after entering the context', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -299,7 +301,7 @@ it('leaves the user cleared even if the route throws after entering the context'
 });
 
 it('leaves the user cleared when the exception crosses the middleware (finally, not just a rendered 500)', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $user = memberOf([$companyA]);
 
     $this->actingAs($user)->withHeaders(companyContextSpaHeaders());
@@ -313,7 +315,7 @@ it('leaves the user cleared when the exception crosses the middleware (finally, 
 });
 
 it('does not leak the user of one request into the next one when another user makes it', function (): void {
-    ['a' => $companyA] = seedCompaniesWithProbeRows();
+    ['a' => $companyA] = seedCompaniesWithAccounts();
     $first = memberOf([$companyA]);
     $second = memberOf([$companyA]);
 
@@ -334,7 +336,7 @@ it('does not leak the user of one request into the next one when another user ma
 });
 
 it('rejects an unauthenticated request with 401 and enters no user', function (): void {
-    seedCompaniesWithProbeRows();
+    seedCompaniesWithAccounts();
 
     $this->withHeaders(companyContextSpaHeaders())->getJson('/api/v1/probe-context')->assertUnauthorized();
 

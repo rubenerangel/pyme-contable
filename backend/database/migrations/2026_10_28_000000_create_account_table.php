@@ -43,6 +43,11 @@ return new class extends Migration
 
         DB::statement('CREATE INDEX account_company_id_parent_id_index ON account (company_id, parent_id)');
 
+        // Tenant table pattern (docs/decisiones.md, Multi-tenant). company_id defaults to the active company. Without
+        // context the expression is NULL: on insert the WITH CHECK of the policy rejects it (42501, Postgres evaluates
+        // RLS before constraints) and NOT NULL stays as a second barrier; on select, update and delete the policy finds
+        // no rows (fails closed). FORCE applies the policies to the table owner too, and the policy is only TO pyme_app,
+        // so the owner sees and writes no rows.
         DB::statement('ALTER TABLE account ENABLE ROW LEVEL SECURITY');
         DB::statement('ALTER TABLE account FORCE ROW LEVEL SECURITY');
 

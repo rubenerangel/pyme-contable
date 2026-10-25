@@ -11,12 +11,12 @@ use Illuminate\Support\Facades\DB;
 /**
  * Probe job with no job middleware: it sees whatever company context the connection has when it starts.
  */
-class ReadProbeLabelsWithoutMiddlewareJob implements ShouldQueue
+class ReadAccountCodesWithoutMiddlewareJob implements ShouldQueue
 {
     use Queueable;
 
     public function handle(): void
     {
-        ProbeJobRecord::record(DB::table('tenant_probe')->orderBy('label')->pluck('label')->all(), $this);
+        ProbeJobRecord::record(DB::table('account')->orderBy('code')->pluck('code')->all(), $this);
     }
 }

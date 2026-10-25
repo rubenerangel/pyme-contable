@@ -28,8 +28,18 @@ final class AccountFixtures
     }
 
     /**
-     * Inserts an account of the company in the context of $connection, passing only the columns that have no default,
-     * and returns its id.
+     * A minimal valid row for account, without id or company_id (both come from the context of the connection).
+     *
+     * @return array{code: string, name: string, is_postable: bool, normal_balance: string}
+     */
+    public static function minimalRow(string $code = 'T1'): array
+    {
+        return ['code' => $code, 'name' => 'Test '.$code, 'is_postable' => false, 'normal_balance' => 'debit'];
+    }
+
+    /**
+     * Inserts an account of the company in the context of $connection, with the columns of minimalRow() plus parent_id,
+     * and returns its id. id, company_id and the flags take their DEFAULT.
      */
     public static function insert(
         ConnectionInterface $connection,

@@ -10,8 +10,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // company_id defaults to the active company, so the application never assigns it (same pattern as
-        // tenant_probe). type, start_date and end_date are derived from (year, number) and nobody writes them.
+        // company_id defaults to the active company, so the application never assigns it (tenant table pattern, see
+        // docs/decisiones.md, Multi-tenant). type, start_date and end_date are derived from (year, number) and nobody writes them.
         // Postgres computes the generated columns before it checks the CHECK constraints, so their expressions must
         // not fail for a number outside 0 to 13: every CASE falls to NULL there and the insert fails with the CHECK
         // (23514), not with a date error (22008 from make_date). make_date and the integer arithmetic on dates are
@@ -51,7 +51,7 @@ return new class extends Migration
             )
             SQL);
 
-        // FORCE applies the policy to the owner too; the policy is only TO pyme_app (see tenant_probe).
+        // FORCE applies the policy to the owner too; the policy is only TO pyme_app (see docs/decisiones.md, Multi-tenant).
         DB::statement('ALTER TABLE period ENABLE ROW LEVEL SECURITY');
         DB::statement('ALTER TABLE period FORCE ROW LEVEL SECURITY');
 

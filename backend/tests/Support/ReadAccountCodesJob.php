@@ -11,9 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Probe job that carries company_id and user_id in its payload and enters the company through the WithCompanyContext middleware.
- * Reads the visible tenant_probe labels and leaves them in ProbeJobRecord.
+ * Reads the visible account codes and leaves them in ProbeJobRecord. It reads the table with the query builder on purpose:
+ * it proves RLS, not the global scope of the Account model.
  */
-class ReadProbeLabelsJob implements ShouldQueue
+class ReadAccountCodesJob implements ShouldQueue
 {
     use Queueable;
 
@@ -29,6 +30,6 @@ class ReadProbeLabelsJob implements ShouldQueue
 
     public function handle(): void
     {
-        ProbeJobRecord::record(DB::table('tenant_probe')->orderBy('label')->pluck('label')->all(), $this);
+        ProbeJobRecord::record(DB::table('account')->orderBy('code')->pluck('code')->all(), $this);
     }
 }

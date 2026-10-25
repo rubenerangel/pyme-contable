@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class ProbeJobRecord
 {
-    /** @var list<string>|null Labels of tenant_probe seen by the last run, null if no job ran. */
-    public static ?array $labels = null;
+    /** @var list<string>|null Account codes seen by the last run, null if no job ran. */
+    public static ?array $codes = null;
 
     /** Raw app.user_id setting seen by the last run ('' when cleared, null if never defined or no job ran). */
     public static ?string $userSetting = null;
@@ -29,7 +29,7 @@ final class ProbeJobRecord
 
     public static function reset(): void
     {
-        self::$labels = null;
+        self::$codes = null;
         self::$userSetting = null;
         self::$companySetting = null;
         self::$runningInstanceId = null;
@@ -37,11 +37,11 @@ final class ProbeJobRecord
     }
 
     /**
-     * @param  list<string>  $labels
+     * @param  list<string>  $codes
      */
-    public static function record(array $labels, object $job): void
+    public static function record(array $codes, object $job): void
     {
-        self::$labels = $labels;
+        self::$codes = $codes;
         self::$userSetting = DB::selectOne("select current_setting('app.user_id', true) as value")->value;
         self::$companySetting = DB::selectOne("select current_setting('app.company_id', true) as value")->value;
         self::$runningInstanceId = spl_object_id($job);

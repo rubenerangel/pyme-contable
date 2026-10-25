@@ -6,7 +6,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 // Tests-only table (never in dev or production): it exists because no real table lets pyme_app DELETE, and the audit
-// trigger has to be proven for INSERT, UPDATE and DELETE. It follows the tenant table pattern (see tenant_probe) and
+// trigger has to be proven for INSERT, UPDATE and DELETE. It follows the tenant table pattern (see account) and
 // carries the two audit triggers that the audited tables of block 4 carry. Its grants are per column, without id or
 // company_id, like the real tables. It must run after the audit_log migration, which creates audit_log_capture(), so
 // its date is later than every audit migration.
