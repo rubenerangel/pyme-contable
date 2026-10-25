@@ -280,7 +280,7 @@ it('moves a descendant up under an ancestor, which is not a cycle', function ():
     ]);
 });
 
-// Hierarchy: a postable account has no children, on a multi-row INSERT. Ids are never passed (pyme_app will lose INSERT
+// Hierarchy: a postable account has no children, on a multi-row INSERT. Ids are never passed (pyme_app has no INSERT
 // on id), so they are predicted: nextval('account_id_seq') returns N, and the next two rows of one statement get N+1 and
 // N+2 in the order of the VALUES list. The row order inside a statement must not matter to the rule. All rows of one
 // multi-row INSERT need the same columns, hence the explicit parent_id => null on the root.

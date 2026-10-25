@@ -5,10 +5,10 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 
-// Catalog checks on the functions in public and on the audit machinery: the search_path of every function, who can
-// execute the SECURITY DEFINER ones, the audit_log policies, sequence and indexes. That every tenant table has the
-// audit triggers lives in TenantIsolationTest, next to the other per-table catalog checks that share its list of
-// global tables.
+// Catalog checks on the functions owned by pyme_owner or in public and on the audit machinery: the search_path of
+// every function, who can execute the SECURITY DEFINER ones, the audit_log policies, sequence and indexes. That every
+// tenant table has the audit triggers lives in TenantIsolationTest, next to the other per-table catalog checks that
+// share its list of global tables.
 uses(RefreshDatabaseAsOwner::class);
 
 /**
@@ -26,70 +26,79 @@ function auditCatalogTestPolicies(): array
         SQL), 'policy');
 }
 
-// Functions written in the audit and integrity migrations: the guard against passing on an empty result.
-const FUNCTIONS_IN_PUBLIC = [
-    'account_enforce_hierarchy',
-    'audit_log_capture',
-    'audit_log_event',
-    'document_counter_check_increment',
+// The functions the migrations write, as p.oid::regprocedure::text prints them: the guard against passing on an empty
+// result.
+const EXPECTED_FUNCTIONS = [
+    'account_enforce_hierarchy()',
+    'audit_log_capture()',
+    'audit_log_event(text,jsonb)',
+    'document_counter_check_increment()',
 ];
 
-it('every function in public, SECURITY DEFINER or not, pins its search_path starting at pg_catalog and ending at pg_temp', function (): void {
+it('every function and procedure owned by pyme_owner or in public, SECURITY DEFINER or not, pins the exact search_path pg_catalog, public, pg_temp', function (): void {
     $actual = [];
-    // pg_temp must be listed explicitly and last: if it is not in the search_path, Postgres searches the session's
-    // temporary schema first, so a role with TEMP could shadow a table (audit_log, account) with a temporary one.
-    // This also holds for INVOKER trigger functions, which run with the search_path of whoever fires the trigger.
+    // Keyed by signature (p.oid::regprocedure::text, e.g. "audit_log_event(text,jsonb)"), not by name: an overload or a
+    // same-named function in another schema gets its own entry and cannot be masked by a well-configured one. The
+    // schema shows only when it is not on the search_path. Filtered by owner or schema: a function pyme_owner creates
+    // in any schema is covered, and so is one in public created by another role (postgres in db/init or a hotfix),
+    // which is the riskiest if SECURITY DEFINER. Functions of extensions are not excluded: there are none today. The
+    // value must be exactly "pg_catalog, public, pg_temp". Anything between pg_catalog and pg_temp, such as "$user", lets a schema named
+    // after the role shadow a table. pg_temp must be listed explicitly and last: if it is not in the search_path,
+    // Postgres searches the session's temporary schema first, so a role with TEMP could shadow a table (audit_log,
+    // account) with a temporary one. This also holds for INVOKER trigger functions, which run with the search_path of
+    // whoever fires the trigger. prokind 'p' (procedures) is included so a future CREATE PROCEDURE cannot skip the
+    // rule.
     foreach (DB::select(<<<'SQL'
-        select p.proname,
-               exists (
-                   select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) as cfg
-                   where cfg ~ '^search_path=pg_catalog(, |$)'
-                     and cfg ~ '(^|, )pg_temp$'
-               ) as pinned_search_path
+        select p.oid::regprocedure::text as signature,
+               'search_path=pg_catalog, public, pg_temp' = any (coalesce(p.proconfig, '{}'::text[])) as pinned_search_path
         from pg_proc p
-        where p.pronamespace = 'public'::regnamespace
-          and p.prokind = 'f'
-        order by p.proname
+        where (p.pronamespace = 'public'::regnamespace or p.proowner = 'pyme_owner'::regrole)
+          and p.prokind in ('f', 'p')
+        order by 1
         SQL) as $row) {
-        $actual[$row->proname] = (bool) $row->pinned_search_path;
+        $actual[$row->signature] = (bool) $row->pinned_search_path;
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKeys(FUNCTIONS_IN_PUBLIC);
+    expect($actual)->toHaveKeys(EXPECTED_FUNCTIONS);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), true),
         $actual,
-        'Function → search_path pinned with pg_catalog first and pg_temp last, for every function in public.',
+        'Function or procedure signature → search_path pinned to exactly "pg_catalog, public, pg_temp", for every one '
+            .'owned by pyme_owner or in public.',
     );
 });
 
-it('no SECURITY DEFINER function in public has EXECUTE for PUBLIC', function (): void {
-    // INVOKER trigger functions keep the default EXECUTE for PUBLIC and that is acceptable: calling one directly
-    // fails with 0A000 (trigger functions can only be called as triggers).
+it('no SECURITY DEFINER function or procedure owned by pyme_owner or in public has EXECUTE for PUBLIC', function (): void {
+    // Keyed by signature and filtered by owner or schema, as in the search_path test. acldefault('f', ...) is also the
+    // default for procedures.
+    // INVOKER trigger functions keep the default EXECUTE for PUBLIC and that is acceptable: calling one directly fails
+    // with 0A000 (trigger functions can only be called as triggers).
     $actual = [];
     foreach (DB::select(<<<'SQL'
-        select p.proname,
+        select p.oid::regprocedure::text as signature,
                exists (
                    select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) as a
                    where a.grantee = 0 and a.privilege_type = 'EXECUTE'
                ) as public_can_execute
         from pg_proc p
-        where p.pronamespace = 'public'::regnamespace
-          and p.prokind = 'f'
+        where (p.pronamespace = 'public'::regnamespace or p.proowner = 'pyme_owner'::regrole)
+          and p.prokind in ('f', 'p')
           and p.prosecdef
-        order by p.proname
+        order by 1
         SQL) as $row) {
-        $actual[$row->proname] = (bool) $row->public_can_execute;
+        $actual[$row->signature] = (bool) $row->public_can_execute;
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKeys(['audit_log_capture', 'audit_log_event']);
+    expect($actual)->toHaveKeys(['audit_log_capture()', 'audit_log_event(text,jsonb)']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), false),
         $actual,
-        'Function → whether PUBLIC can EXECUTE it, for every SECURITY DEFINER function in public.',
+        'Function or procedure signature → whether PUBLIC can EXECUTE it, for every SECURITY DEFINER one owned by pyme_owner or '
+            .'in public.',
     );
 });
 

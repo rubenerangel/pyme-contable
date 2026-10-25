@@ -34,6 +34,7 @@
 - Si document_date (regla y parámetros) y accounting_date (periodo) pueden diferir, y qué pasa si la regla corresponde a un periodo y el documento cae en otro cerrado.
 - Reverso de un documento en periodo cerrado: qué fecha y qué periodo toma.
 - Proceso de cierre y reapertura, si los consecutivos reinician cada año, cuántos años de histórico migrar.
+- Al cargar el histórico y los saldos iniciales, si los periodos de años anteriores entran ya cerrados o se abren y se cierran por el flujo normal (que deja un evento de cierre en la bitácora).
 
 ## Reglas fiscales
 
