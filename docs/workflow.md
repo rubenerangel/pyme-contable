@@ -18,7 +18,8 @@ Tres roles de construcción y dos revisores en Claude Code. Rubén aprueba plane
 4. El coder implementa hasta verde. Nunca edita tests.
 5. Si el plan lo pide, los revisores revisan el diff en verde. El arquitecto decide qué hallazgos se corrigen en el paso, cuáles se registran como pendientes en docs/estado.md y cuáles se descartan con motivo. Lo que se corrige vuelve por tester y coder.
 6. El arquitecto revisa el diff contra el plan y CLAUDE.md, corre la suite completa y rompe a mano cada invariante nueva para ver el test en rojo.
-7. El arquitecto muestra un resumen, con los hallazgos de los revisores y qué se hizo con cada uno. Con el OK de Rubén hace el commit, que incluye docs/estado.md si cierra un paso. Push solo si Rubén lo pide.
+7. Antes del commit, si el diff lo pide (ver /code-review más abajo), el arquitecto corre /code-review sobre el diff a commitear. Sus hallazgos siguen la misma regla del paso 5: se corrigen vía tester y coder, se registran como pendientes o se descartan con motivo.
+8. El arquitecto muestra un resumen, con los hallazgos de los revisores y de /code-review y qué se hizo con cada uno. Con el OK de Rubén hace el commit, que incluye docs/estado.md si cierra un paso. Push solo si Rubén lo pide.
 
 ## Revisores
 
@@ -28,6 +29,13 @@ Tres roles de construcción y dos revisores en Claude Code. Rubén aprueba plane
 - Prioridad cuando chocan: el orden de [decisiones.md](decisiones.md), sección Trade-offs. Un hallazgo de rendimiento nunca relaja una invariante de CLAUDE.md. Un hallazgo que contradice docs/decisiones.md llega como "decision challenge" y lo decide Rubén.
 - El modelo va fijado por id (claude-opus-5-5) y se actualiza a mano al cambiar de versión.
 
+## /code-review
+
+- Corre antes del commit cuando el diff toca algo que se ejecuta: backend/ (código, migraciones, tests y sondas de tests), frontend/, db/, compose.yaml, Dockerfile, configuración de nginx o PHP, .github/ y lockfiles (composer.lock, package-lock.json).
+- No corre cuando el diff es solo docs: docs/, CLAUDE.md, archivos .md y las definiciones de agentes en .claude/agents/.
+- Diff mixto: corre, sobre todo el diff.
+- Va después de la verificación del arquitecto (paso 6) y no reemplaza a los revisores de seguridad y rendimiento: ellos revisan su tema contra las invariantes, /code-review busca errores de corrección en el diff.
+
 ## Reglas
 
 - Mismo árbol de trabajo, un agente a la vez. Compose monta ./backend y ./db, así que un worktree aparte necesitaría su propio stack.
@@ -36,6 +44,6 @@ Tres roles de construcción y dos revisores en Claude Code. Rubén aprueba plane
 - Solo el arquitecto, con OK de Rubén: git commit y push, docker compose down -v, instalar dependencias (composer require, npm install) y cambios de entorno (.env, volúmenes).
 - Context7: cada agente consulta la versión del lock antes de usar una API de librería e indica en una línea qué consultó. Si no está, lo dice y marca el código como no verificado.
 - Reporte final de cada agente: archivos tocados, comandos con su resultado, lo verificado y lo supuesto. Los revisores además: veredicto y hallazgos con severidad y evidencia.
-- Revisión: la hace el arquitecto, con los reportes de los revisores cuando el plan los pide. /code-review solo si Rubén lo pide.
+- Revisión: la hace el arquitecto, con los reportes de los revisores cuando el plan los pide, y /code-review antes del commit cuando el diff lo pide (paso 7 y sección /code-review).
 - Patrones: el plan y la especificación nombran en MAYÚSCULAS el patrón de cada pieza, por qué y la alternativa descartada, o dicen que no hace falta. El coder aplica solo los que pide la especificación y los nombra en su reporte. La revisión del arquitecto incluye buscar sobreingeniería: una abstracción sin un segundo caso real se quita.
 - Las restricciones de comandos de los agentes son por instrucción. Los permisos efectivos son los de la sesión: disallowedTools quita Edit y Write a los revisores, pero Bash sigue disponible.
