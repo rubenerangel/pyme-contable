@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\DB;
 
 // Tests-only table (never in dev or production): it exists because no real table lets pyme_app DELETE, and the audit
 // trigger has to be proven for INSERT, UPDATE and DELETE. It follows the tenant table pattern (see tenant_probe) and
-// carries the two audit triggers that the audited tables of block 4 carry. It must run after the audit_log migration,
-// which creates audit_log_capture(), so its date is later than every audit migration.
+// carries the two audit triggers that the audited tables of block 4 carry. Its grants are per column, without id or
+// company_id, like the real tables. It must run after the audit_log migration, which creates audit_log_capture(), so
+// its date is later than every audit migration.
 return new class extends Migration
 {
     public function up(): void
@@ -33,7 +34,9 @@ return new class extends Migration
                 WITH CHECK (company_id = nullif(current_setting('app.company_id', true), '')::bigint)
             SQL);
 
-        DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON audit_probe TO pyme_app');
+        DB::statement('GRANT SELECT, DELETE ON audit_probe TO pyme_app');
+        DB::statement('GRANT INSERT (label) ON audit_probe TO pyme_app');
+        DB::statement('GRANT UPDATE (label) ON audit_probe TO pyme_app');
         DB::statement('GRANT USAGE ON SEQUENCE audit_probe_id_seq TO pyme_app');
 
         // Same pair of triggers as the audited tables. The UPDATE one skips rows that did not really change.

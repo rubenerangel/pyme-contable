@@ -5,9 +5,10 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 
-// Catalog checks on the audit machinery: the SECURITY DEFINER functions, who can execute them, the audit_log policies,
-// sequence and indexes. That every tenant table has the audit triggers lives in TenantIsolationTest, next to the
-// other per-table catalog checks that share its list of global tables.
+// Catalog checks on the functions in public and on the audit machinery: the search_path of every function, who can
+// execute the SECURITY DEFINER ones, the audit_log policies, sequence and indexes. That every tenant table has the
+// audit triggers lives in TenantIsolationTest, next to the other per-table catalog checks that share its list of
+// global tables.
 uses(RefreshDatabaseAsOwner::class);
 
 /**
@@ -25,33 +26,70 @@ function auditCatalogTestPolicies(): array
         SQL), 'policy');
 }
 
-it('every SECURITY DEFINER function in public pins its search_path to pg_catalog and has no EXECUTE for PUBLIC', function (): void {
+// Functions written in the audit and integrity migrations: the guard against passing on an empty result.
+const FUNCTIONS_IN_PUBLIC = [
+    'account_enforce_hierarchy',
+    'audit_log_capture',
+    'audit_log_event',
+    'document_counter_check_increment',
+];
+
+it('every function in public, SECURITY DEFINER or not, pins its search_path starting at pg_catalog and ending at pg_temp', function (): void {
     $actual = [];
+    // pg_temp must be listed explicitly and last: if it is not in the search_path, Postgres searches the session's
+    // temporary schema first, so a role with TEMP could shadow a table (audit_log, account) with a temporary one.
+    // This also holds for INVOKER trigger functions, which run with the search_path of whoever fires the trigger.
     foreach (DB::select(<<<'SQL'
         select p.proname,
                exists (
                    select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) as cfg
-                   where cfg like 'search_path=pg_catalog%'
-               ) as pinned_search_path,
+                   where cfg ~ '^search_path=pg_catalog(, |$)'
+                     and cfg ~ '(^|, )pg_temp$'
+               ) as pinned_search_path
+        from pg_proc p
+        where p.pronamespace = 'public'::regnamespace
+          and p.prokind = 'f'
+        order by p.proname
+        SQL) as $row) {
+        $actual[$row->proname] = (bool) $row->pinned_search_path;
+    }
+
+    // Guard against passing on an empty result.
+    expect($actual)->toHaveKeys(FUNCTIONS_IN_PUBLIC);
+
+    $this->assertSame(
+        array_fill_keys(array_keys($actual), true),
+        $actual,
+        'Function → search_path pinned with pg_catalog first and pg_temp last, for every function in public.',
+    );
+});
+
+it('no SECURITY DEFINER function in public has EXECUTE for PUBLIC', function (): void {
+    // INVOKER trigger functions keep the default EXECUTE for PUBLIC and that is acceptable: calling one directly
+    // fails with 0A000 (trigger functions can only be called as triggers).
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select p.proname,
                exists (
                    select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) as a
                    where a.grantee = 0 and a.privilege_type = 'EXECUTE'
                ) as public_can_execute
         from pg_proc p
         where p.pronamespace = 'public'::regnamespace
+          and p.prokind = 'f'
           and p.prosecdef
         order by p.proname
         SQL) as $row) {
-        $actual[$row->proname] = [(bool) $row->pinned_search_path, (bool) $row->public_can_execute];
+        $actual[$row->proname] = (bool) $row->public_can_execute;
     }
 
     // Guard against passing on an empty result.
     expect($actual)->toHaveKeys(['audit_log_capture', 'audit_log_event']);
 
     $this->assertSame(
-        array_fill_keys(array_keys($actual), [true, false]),
+        array_fill_keys(array_keys($actual), false),
         $actual,
-        'Function → [search_path pinned to pg_catalog first, PUBLIC can EXECUTE] for every SECURITY DEFINER function in public.',
+        'Function → whether PUBLIC can EXECUTE it, for every SECURITY DEFINER function in public.',
     );
 });
 

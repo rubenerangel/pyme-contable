@@ -62,9 +62,12 @@ return new class extends Migration
                 WITH CHECK (company_id = nullif(current_setting('app.company_id', true), '')::bigint)
             SQL);
 
-        // The application only closes and reopens: UPDATE on status alone. year and number never change and a period
-        // is never deleted. UPDATE on a column also lets it run SELECT ... FOR SHARE and FOR UPDATE on the row.
-        DB::statement('GRANT SELECT, INSERT ON period TO pyme_app');
+        // INSERT goes per column, without id or company_id, so the application cannot assign them; the generated
+        // columns stay out too. The application only closes and reopens: UPDATE on status alone. year and number never
+        // change and a period is never deleted. UPDATE on a column also lets it run SELECT ... FOR SHARE and FOR UPDATE
+        // on the row.
+        DB::statement('GRANT SELECT ON period TO pyme_app');
+        DB::statement('GRANT INSERT (year, number, status) ON period TO pyme_app');
         DB::statement('GRANT UPDATE (status) ON period TO pyme_app');
         DB::statement('GRANT USAGE ON SEQUENCE period_id_seq TO pyme_app');
     }

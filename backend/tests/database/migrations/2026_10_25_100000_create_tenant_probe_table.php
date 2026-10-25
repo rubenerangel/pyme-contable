@@ -5,8 +5,9 @@ declare(strict_types=1);
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-// Tests-only table (never in dev or production): proves row level security by company in isolation. It is the
-// pattern the tenant tables of block 4 copy.
+// Tests-only table (never in dev or production): proves row level security by company in isolation. It is the RLS
+// pattern the tenant tables of block 4 copy. Its table-level grants are deliberate: they let the tests try the WITH
+// CHECK with a foreign company_id. The real tables grant INSERT and UPDATE per column, without id or company_id.
 return new class extends Migration
 {
     public function up(): void

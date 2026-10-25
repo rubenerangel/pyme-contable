@@ -46,10 +46,11 @@ return new class extends Migration
         // that creates the counter (INSERT ... ON CONFLICT DO UPDATE). migrate:fresh does not drop functions, so the
         // function is dropped first (no CASCADE: the table and its trigger are already gone) and its definition always
         // comes from this migration.
+        // search_path is pinned by the same rule as every function in public, even though this one is INVOKER.
         DB::statement('DROP FUNCTION IF EXISTS document_counter_check_increment()');
         DB::statement(<<<'SQL'
             CREATE FUNCTION document_counter_check_increment() RETURNS trigger
-            LANGUAGE plpgsql AS $$
+            LANGUAGE plpgsql SET search_path = pg_catalog, public, pg_temp AS $$
             BEGIN
                 IF TG_OP = 'INSERT' AND NEW.last_number <> 1 THEN
                     RAISE EXCEPTION 'document_counter must start at 1, got %', NEW.last_number
@@ -72,8 +73,10 @@ return new class extends Migration
                 FOR EACH ROW EXECUTE FUNCTION document_counter_check_increment()
             SQL);
 
-        // UPDATE on last_number alone: the type, the year and the company of a counter never change. No DELETE.
-        DB::statement('GRANT SELECT, INSERT ON document_counter TO pyme_app');
+        // INSERT goes per column, without id or company_id, so the application cannot assign them. UPDATE on
+        // last_number alone: the type, the year and the company of a counter never change. No DELETE.
+        DB::statement('GRANT SELECT ON document_counter TO pyme_app');
+        DB::statement('GRANT INSERT (document_type_id, year, last_number) ON document_counter TO pyme_app');
         DB::statement('GRANT UPDATE (last_number) ON document_counter TO pyme_app');
         DB::statement('GRANT USAGE ON SEQUENCE document_counter_id_seq TO pyme_app');
     }

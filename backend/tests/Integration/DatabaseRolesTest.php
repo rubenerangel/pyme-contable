@@ -91,6 +91,35 @@ it('pyme_app does not own any relation, schema or database', function (): void {
     $this->assertSame([], $databases, 'pyme_app owns databases: '.implode(', ', $databases));
 });
 
+it('pyme_app has neither TEMP nor CREATE on the pyme and pyme_test databases', function (): void {
+    // TEMP would let pyme_app create temporary tables that shadow real ones for any function that does not pin
+    // pg_temp last in its search_path. CREATE would let it add schemas. By default PUBLIC receives only TEMP and CONNECT
+    // on a database (acldefault('d', ...) = {=Tc/...}), never CREATE: the CREATE assert is a guard against an explicit
+    // GRANT, while TEMP is the one that must be revoked from PUBLIC.
+    $row = DB::selectOne(<<<'SQL'
+        select has_database_privilege('pyme_app', 'pyme',      'TEMP')   as pyme_temp,
+               has_database_privilege('pyme_app', 'pyme',      'CREATE') as pyme_create,
+               has_database_privilege('pyme_app', 'pyme_test', 'TEMP')   as pyme_test_temp,
+               has_database_privilege('pyme_app', 'pyme_test', 'CREATE') as pyme_test_create
+        SQL);
+
+    $this->assertSame(
+        [
+            'pyme_app TEMP on pyme' => false,
+            'pyme_app CREATE on pyme' => false,
+            'pyme_app TEMP on pyme_test' => false,
+            'pyme_app CREATE on pyme_test' => false,
+        ],
+        [
+            'pyme_app TEMP on pyme' => (bool) $row->pyme_temp,
+            'pyme_app CREATE on pyme' => (bool) $row->pyme_create,
+            'pyme_app TEMP on pyme_test' => (bool) $row->pyme_test_temp,
+            'pyme_app CREATE on pyme_test' => (bool) $row->pyme_test_create,
+        ],
+        'Privilege on database → whether pyme_app has it (directly or through PUBLIC). Expected none of them.',
+    );
+});
+
 it('neither pyme_app nor pyme_owner can connect to the postgres database, but both can to pyme and pyme_test', function (): void {
     // has_database_privilege raises an SQL error if the role or the database does not exist.
     $row = DB::selectOne(<<<'SQL'

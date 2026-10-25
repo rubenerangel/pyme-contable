@@ -20,6 +20,25 @@ const GLOBAL_TABLES_WITH_COMPANY_ID = ['company_user'];
 // (audit_probe is the one that carries the triggers).
 const AUDIT_EXEMPT_TABLES = ['audit_log', 'document_counter', 'tenant_probe'];
 
+// The company predicate every tenant policy must use, as Postgres 17 prints it in pg_policies. If a Postgres upgrade
+// changes how it prints this expression, update it here after checking that the meaning is the same.
+const CANONICAL_TENANT_PREDICATE = "(company_id = (NULLIF(current_setting('app.company_id'::text, true), ''::text))::bigint)";
+
+// Policy columns shown as "name | permissive | command | roles | USING | WITH CHECK" ("-" when absent).
+const CANONICAL_TENANT_POLICY = 'tenant_isolation | PERMISSIVE | ALL | {pyme_app} | '.CANONICAL_TENANT_PREDICATE.' | '.CANONICAL_TENANT_PREDICATE;
+
+// Tables whose policies differ from the default (one tenant_isolation FOR ALL policy for pyme_app). audit_log is
+// append-only: pyme_app can only read its company's rows (no INSERT, UPDATE or DELETE policy), and the SECURITY
+// DEFINER functions, which run as pyme_owner, insert the rows. owner_select exists because INSERT ... RETURNING
+// in audit_log_event needs SELECT on the row. Adding a table here is a design decision.
+const POLICY_EXCEPTIONS = [
+    'audit_log' => [
+        'tenant_isolation | PERMISSIVE | SELECT | {pyme_app} | '.CANONICAL_TENANT_PREDICATE.' | -',
+        'owner_insert | PERMISSIVE | INSERT | {pyme_owner} | - | '.CANONICAL_TENANT_PREDICATE,
+        'owner_select | PERMISSIVE | SELECT | {pyme_owner} | '.CANONICAL_TENANT_PREDICATE.' | -',
+    ],
+];
+
 // pg_trigger.tgtype bits: INSERT 4, DELETE 8, UPDATE 16.
 const AUDIT_EVENTS_ALL = 4 + 8 + 16;
 
@@ -222,6 +241,61 @@ it('every public table with a company_id column also has it NOT NULL with a DEFA
         array_fill_keys(array_keys($actual), [true, true]),
         $actual,
         'Table → [company_id NOT NULL, DEFAULT reads current_setting(app.company_id)] for every tenant table (second barrier).',
+    );
+});
+
+it('every public table with a company_id column has exactly the expected policies, except the global tables', function (): void {
+    // Left join so that a tenant table with no policy at all shows up with an empty list instead of disappearing.
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select c.relname,
+               p.policyname || ' | ' || p.permissive || ' | ' || p.cmd || ' | ' || p.roles::text
+                   || ' | ' || coalesce(p.qual, '-') || ' | ' || coalesce(p.with_check, '-') as policy
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        left join pg_policies p on p.schemaname = n.nspname and p.tablename = c.relname
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and exists (
+              select 1 from pg_attribute a
+              where a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
+          )
+        SQL) as $row) {
+        if (in_array($row->relname, GLOBAL_TABLES_WITH_COMPANY_ID, true)) {
+            continue;
+        }
+
+        $actual[$row->relname] ??= [];
+        if ($row->policy !== null) {
+            $actual[$row->relname][] = $row->policy;
+        }
+    }
+
+    // Guard against passing on an empty result: the exception and the probe must be covered.
+    expect($actual)->toHaveKeys(['audit_log', 'tenant_probe']);
+
+    $expected = [];
+    foreach (array_keys($actual) as $table) {
+        $expected[$table] = POLICY_EXCEPTIONS[$table] ?? [CANONICAL_TENANT_POLICY];
+    }
+
+    // Sort in PHP so the comparison does not depend on the database collation.
+    $sorted = static function (array $policiesByTable): array {
+        ksort($policiesByTable);
+
+        return array_map(static function (array $policies): array {
+            sort($policies, SORT_STRING);
+
+            return $policies;
+        }, $policiesByTable);
+    };
+    $actual = $sorted($actual);
+    $expected = $sorted($expected);
+
+    $this->assertSame(
+        $expected,
+        $actual,
+        'Table → policies as "name | permissive | command | roles | USING | WITH CHECK" ("-" when absent). Every tenant table has only tenant_isolation, PERMISSIVE, ALL, {pyme_app}, with the canonical company predicate in USING and WITH CHECK, unless it is declared in POLICY_EXCEPTIONS. An extra, missing or looser policy fails here.',
     );
 });
 

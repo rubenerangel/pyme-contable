@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use App\Models\Company;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 
@@ -16,30 +17,66 @@ uses(RefreshDatabaseAsOwner::class);
 
 // Complete map of every table in public (except migrations) to the privileges pyme_app must have on it, in
 // alphabetical order. A new table without an entry here makes the privileges test fail.
-// account, document_counter, document_type and period have no table-level UPDATE: pyme_app updates only the columns
-// declared in EXPECTED_COLUMN_UPDATES.
+// account, document_counter, document_type and period have no table-level INSERT or UPDATE: pyme_app inserts only the
+// columns declared in EXPECTED_COLUMN_INSERTS (never id or company_id, which take their DEFAULT) and updates only the
+// columns declared in EXPECTED_COLUMN_UPDATES.
 // audit_log is read-only for pyme_app: it is written by SECURITY DEFINER functions that run as pyme_owner, so it has no
-// UPDATE of any kind and is declared with an empty list in EXPECTED_COLUMN_UPDATES.
+// INSERT or UPDATE of any kind and is declared with an empty list in EXPECTED_COLUMN_INSERTS and EXPECTED_COLUMN_UPDATES.
 // tenant_probe and audit_probe are tests-only tables (backend/tests/database/migrations): they exist in public only
-// during the tests.
+// during the tests. audit_probe is the template of the audited tables, so it is no laxer than they are: no table-level
+// INSERT or UPDATE, and column privileges only on label.
 const EXPECTED_TABLE_PRIVILEGES = [
-    'account' => ['DELETE', 'INSERT', 'SELECT'],
+    'account' => ['DELETE', 'SELECT'],
     'audit_log' => ['SELECT'],
-    'audit_probe' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'audit_probe' => ['DELETE', 'SELECT'],
     'cache' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'cache_locks' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'companies' => ['INSERT', 'SELECT', 'UPDATE'],
     'company_user' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
-    'document_counter' => ['INSERT', 'SELECT'],
-    'document_type' => ['INSERT', 'SELECT'],
+    'document_counter' => ['SELECT'],
+    'document_type' => ['SELECT'],
     'failed_jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'job_batches' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
-    'period' => ['INSERT', 'SELECT'],
+    'period' => ['SELECT'],
     'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'tenant_probe' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'users' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+];
+
+// Complete map of every table in public (except migrations) on which pyme_app has no table-level INSERT to the columns
+// where it has INSERT (column privilege), in alphabetical order. A new table without table-level INSERT must be
+// declared here, even if its list is empty. id and company_id are never listed: they take their DEFAULT. The generated
+// period columns (type, start_date, end_date) are not listed either.
+const EXPECTED_COLUMN_INSERTS = [
+    'account' => [
+        'code',
+        'is_active',
+        'is_postable',
+        'name',
+        'normal_balance',
+        'parent_id',
+        'requires_construction_project',
+        'requires_cost_center',
+        'requires_municipality',
+        'requires_tax_detail',
+        'requires_third_party',
+    ],
+    'audit_log' => [],
+    'audit_probe' => ['label'],
+    'document_counter' => ['document_type_id', 'last_number', 'year'],
+    'document_type' => ['code', 'name', 'resets_yearly'],
+    'period' => ['number', 'status', 'year'],
+];
+
+// Tables with a company_id column on which pyme_app may insert id or company_id, each for its own reason.
+const TABLES_ALLOWED_TO_INSERT_ID_OR_COMPANY_ID = [
+    // The membership is global and the application assigns its company_id (see GLOBAL_TABLES_WITH_COMPANY_ID in
+    // TenantIsolationTest).
+    'company_user',
+    // TenantIsolationTest probes with a foreign company_id that the WITH CHECK must reject.
+    'tenant_probe',
 ];
 
 // Complete map of every table in public (except migrations) on which pyme_app has no table-level UPDATE to the columns
@@ -60,6 +97,7 @@ const EXPECTED_COLUMN_UPDATES = [
         'requires_third_party',
     ],
     'audit_log' => [],
+    'audit_probe' => ['label'],
     'document_counter' => ['last_number'],
     'document_type' => ['name'],
     'period' => ['status'],
@@ -186,6 +224,85 @@ it('pyme_app has exactly the expected UPDATE columns on every public table witho
     );
 });
 
+it('pyme_app has exactly the expected INSERT columns on every public table without table-level INSERT', function (): void {
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select c.oid, c.relname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and c.relname <> 'migrations'
+          and not has_table_privilege('pyme_app', c.oid, 'INSERT')
+        order by c.relname
+        SQL) as $table) {
+        $columns = array_column(DB::select(<<<'SQL'
+            select a.attname
+            from pg_attribute a
+            where a.attrelid = ?
+              and a.attnum > 0
+              and not a.attisdropped
+              and has_column_privilege('pyme_app', a.attrelid, a.attnum, 'INSERT')
+            order by a.attname
+            SQL, [$table->oid]), 'attname');
+
+        $actual[$table->relname] = $columns;
+    }
+
+    $this->assertSame(
+        EXPECTED_COLUMN_INSERTS,
+        $actual,
+        'Table → columns where pyme_app has INSERT, for every table without table-level INSERT. A new table without table-level INSERT must be declared in EXPECTED_COLUMN_INSERTS.',
+    );
+});
+
+it('pyme_app cannot insert id or company_id on any public table with a company_id column, except the declared ones', function (): void {
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select c.relname, a.attname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        join pg_attribute a on a.attrelid = c.oid
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and a.attnum > 0
+          and not a.attisdropped
+          and a.attname in ('id', 'company_id')
+          and exists (
+              select 1 from pg_attribute k
+              where k.attrelid = c.oid and k.attname = 'company_id' and not k.attisdropped
+          )
+          and has_column_privilege('pyme_app', c.oid, a.attnum, 'INSERT')
+        order by c.relname, a.attname
+        SQL) as $row) {
+        if (in_array($row->relname, TABLES_ALLOWED_TO_INSERT_ID_OR_COMPANY_ID, true)) {
+            continue;
+        }
+
+        $actual[] = $row->relname.'.'.$row->attname;
+    }
+
+    $this->assertSame([], $actual, 'Table.column pairs where pyme_app can insert id or company_id and must not.');
+
+    // Guard against passing on an empty result: the catalog must see the tenant tables this rule is about.
+    $tenantTables = array_column(DB::select(<<<'SQL'
+        select c.relname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and exists (
+              select 1 from pg_attribute k
+              where k.attrelid = c.oid and k.attname = 'company_id' and not k.attisdropped
+          )
+        order by c.relname
+        SQL), 'relname');
+
+    foreach (['account', 'audit_log', 'document_counter', 'document_type', 'period'] as $table) {
+        $this->assertContains($table, $tenantTables, "The catalog query must find $table among the tables with a company_id column.");
+    }
+});
+
 it('pyme_app has no privileges on migrations', function (): void {
     $this->assertSame(
         [],
@@ -256,6 +373,64 @@ it('pyme_app can insert into document_counter without an id and gets one (USAGE 
 
     $this->assertGreaterThan(0, (int) $id, 'The insert into document_counter as pyme_app must return a generated id.');
 });
+
+const TENANT_TABLES_WITH_COLUMN_INSERTS = [
+    'account' => ['account'],
+    'period' => ['period'],
+    'document_type' => ['document_type'],
+    'document_counter' => ['document_counter'],
+];
+
+/**
+ * A minimal valid row for the table, without id or company_id. The company context must already be entered, because
+ * document_counter needs a document type of the company first.
+ *
+ * @return array<string, mixed>
+ */
+function appPermissionsMinimalRow(string $table): array
+{
+    return match ($table) {
+        'account' => ['code' => 'T1', 'name' => 'Test T1', 'is_postable' => false, 'normal_balance' => 'debit'],
+        'period' => ['year' => 2026, 'number' => 1],
+        'document_type' => ['code' => 'INV', 'name' => 'Invoice', 'resets_yearly' => true],
+        // last_number must be 1 on insert (counter trigger).
+        'document_counter' => [
+            'document_type_id' => DB::table('document_type')->insertGetId(['code' => 'INV', 'name' => 'Invoice', 'resets_yearly' => true]),
+            'year' => 2026,
+            'last_number' => 1,
+        ],
+    };
+}
+
+/**
+ * Asserts that the insert is rejected for lack of privilege on the column: SQLSTATE 42501 and the message Postgres 17
+ * gives for a missing privilege ("permission denied for table ..."). The message tells it apart from the other 42501
+ * causes: the WITH CHECK of RLS ("new row violates row-level security policy") and audit_log_capture without
+ * app.user_id.
+ */
+function appPermissionsExpectInsertDenied(Closure $statement): void
+{
+    expect($statement)->toThrow(function (QueryException $e): void {
+        expect($e->errorInfo[0])->toBe('42501');
+        expect($e->getMessage())->toContain('permission denied for table');
+    });
+}
+
+// One statement per test: a SQL error aborts the transaction of RefreshDatabase. The rows are otherwise valid, so the
+// only reason to fail is the privilege on the column.
+it('does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501)', function (string $table): void {
+    enterCompanyForSequenceChecks();
+    $row = appPermissionsMinimalRow($table);
+
+    appPermissionsExpectInsertDenied(fn () => DB::table($table)->insert($row + ['id' => 900_000_001]));
+})->with(TENANT_TABLES_WITH_COLUMN_INSERTS);
+
+it('does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501)', function (string $table): void {
+    $company = enterCompanyForSequenceChecks();
+    $row = appPermissionsMinimalRow($table);
+
+    appPermissionsExpectInsertDenied(fn () => DB::table($table)->insert($row + ['company_id' => $company->id]));
+})->with(TENANT_TABLES_WITH_COLUMN_INSERTS);
 
 it('there are no default privileges (pg_default_acl is empty)', function (): void {
     $rows = array_column(DB::select(<<<'SQL'

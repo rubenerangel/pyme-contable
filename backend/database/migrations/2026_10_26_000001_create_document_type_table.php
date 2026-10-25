@@ -37,8 +37,10 @@ return new class extends Migration
                 WITH CHECK (company_id = nullif(current_setting('app.company_id', true), '')::bigint)
             SQL);
 
-        // code and resets_yearly define how existing documents are numbered, so they are fixed once created. No DELETE.
-        DB::statement('GRANT SELECT, INSERT ON document_type TO pyme_app');
+        // INSERT goes per column, without id or company_id, so the application cannot assign them. code and
+        // resets_yearly define how existing documents are numbered, so they are fixed once created. No DELETE.
+        DB::statement('GRANT SELECT ON document_type TO pyme_app');
+        DB::statement('GRANT INSERT (code, name, resets_yearly) ON document_type TO pyme_app');
         DB::statement('GRANT UPDATE (name) ON document_type TO pyme_app');
         DB::statement('GRANT USAGE ON SEQUENCE document_type_id_seq TO pyme_app');
     }

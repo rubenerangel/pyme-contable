@@ -92,7 +92,9 @@ return new class extends Migration
 
         // The audit user comes from app.user_id (set with the company by DatabaseCompanyContext). Without it the write
         // fails closed (42501) and the statement that fired the trigger rolls back with it. search_path is pinned
-        // because SECURITY DEFINER code must not resolve names through the caller's path. EXECUTE is revoked from
+        // because SECURITY DEFINER code must not resolve names through the caller's path. pg_temp is listed
+        // explicitly and last: when it is absent Postgres searches the session's temporary schema first, so a role
+        // with TEMP could shadow audit_log with a temporary table. EXECUTE is revoked from
         // PUBLIC (the default for functions) and granted back only where it is needed. migrate:fresh does not drop
         // functions and CREATE OR REPLACE keeps the ACL and the owner of the previous one, so each function is dropped
         // first (no CASCADE: the tables and their triggers are already gone) and the ACL and the definition always
@@ -100,7 +102,7 @@ return new class extends Migration
         DB::statement('DROP FUNCTION IF EXISTS audit_log_capture()');
         DB::statement(<<<'SQL'
             CREATE FUNCTION audit_log_capture() RETURNS trigger
-            LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+            LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
             DECLARE
                 v_user_id bigint := nullif(current_setting('app.user_id', true), '')::bigint;
             BEGIN
@@ -131,7 +133,7 @@ return new class extends Migration
         DB::statement('DROP FUNCTION IF EXISTS audit_log_event(text, jsonb)');
         DB::statement(<<<'SQL'
             CREATE FUNCTION audit_log_event(p_event_type text, p_details jsonb) RETURNS bigint
-            LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+            LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
             DECLARE
                 v_user_id bigint := nullif(current_setting('app.user_id', true), '')::bigint;
                 v_id bigint;

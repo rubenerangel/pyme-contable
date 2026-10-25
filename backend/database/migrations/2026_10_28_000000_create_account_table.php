@@ -69,10 +69,12 @@ return new class extends Migration
         // statement, so the parent's trigger sees the child and rejects it.
         // migrate:fresh does not drop functions and CREATE OR REPLACE keeps the ACL and the owner of the previous one,
         // so the function is dropped first (no CASCADE: the table and its trigger are already gone).
+        // search_path is pinned although the function is not SECURITY DEFINER: the trigger runs with the caller's
+        // search_path, and without pg_temp last a temporary table could shadow account.
         DB::statement('DROP FUNCTION IF EXISTS account_enforce_hierarchy()');
         DB::statement(<<<'SQL'
             CREATE FUNCTION account_enforce_hierarchy() RETURNS trigger
-            LANGUAGE plpgsql AS $$
+            LANGUAGE plpgsql SET search_path = pg_catalog, public, pg_temp AS $$
             DECLARE
                 v_parent_is_postable boolean;
                 v_ancestor_id bigint;
@@ -132,9 +134,17 @@ return new class extends Migration
                 EXECUTE FUNCTION audit_log_capture()
             SQL);
 
-        // UPDATE per column: id and company_id never change. A column UPDATE also lets the trigger run SELECT ... FOR
-        // SHARE on the rows (see period). DELETE is there for leaf accounts; the foreign key blocks a parent.
-        DB::statement('GRANT SELECT, INSERT, DELETE ON account TO pyme_app');
+        // INSERT and UPDATE per column, without id or company_id: both come from their DEFAULT and never change, so
+        // the application cannot assign them. A column UPDATE also lets the trigger run SELECT ... FOR SHARE on the
+        // rows (see period). DELETE is there for leaf accounts; the foreign key blocks a parent.
+        DB::statement('GRANT SELECT, DELETE ON account TO pyme_app');
+        DB::statement(<<<'SQL'
+            GRANT INSERT (
+                code, name, parent_id, is_postable, normal_balance,
+                requires_third_party, requires_cost_center, requires_construction_project,
+                requires_municipality, requires_tax_detail, is_active
+            ) ON account TO pyme_app
+            SQL);
         DB::statement(<<<'SQL'
             GRANT UPDATE (
                 code, name, parent_id, is_postable, normal_balance,
