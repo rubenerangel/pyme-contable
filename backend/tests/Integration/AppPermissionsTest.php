@@ -26,6 +26,8 @@ uses(RefreshDatabaseAsOwner::class);
 // columns declared in EXPECTED_COLUMN_UPDATES.
 // audit_log is read-only for pyme_app: it is written by SECURITY DEFINER functions that run as pyme_owner, so it has no
 // INSERT or UPDATE of any kind and is declared with an empty list in EXPECTED_COLUMN_INSERTS and EXPECTED_COLUMN_UPDATES.
+// municipality is the global catalog of DANE (DIVIPOLA), seeded by the migration that creates it: read-only for pyme_app,
+// with an empty list in EXPECTED_COLUMN_INSERTS and EXPECTED_COLUMN_UPDATES like audit_log, and no privilege on its sequence.
 // audit_probe is a tests-only table (backend/tests/database/migrations): it exists in public only during the tests. It
 // is the template of the audited tables, so it is no laxer than they are: no table-level INSERT or UPDATE, and column
 // privileges only on label.
@@ -44,6 +46,7 @@ const EXPECTED_TABLE_PRIVILEGES = [
     'failed_jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'job_batches' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'municipality' => ['SELECT'],
     'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'period' => ['SELECT'],
     'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
@@ -75,6 +78,7 @@ const EXPECTED_COLUMN_INSERTS = [
     'cost_center' => ['code', 'is_active', 'name'],
     'document_counter' => ['document_type_id', 'last_number', 'year'],
     'document_type' => ['code', 'name', 'resets_yearly'],
+    'municipality' => [],
     'period' => ['number', 'status', 'year'],
     'third_party' => [
         'business_name',
@@ -120,6 +124,7 @@ const EXPECTED_COLUMN_UPDATES = [
     'cost_center' => ['code', 'is_active', 'name'],
     'document_counter' => ['last_number'],
     'document_type' => ['name'],
+    'municipality' => [],
     'period' => ['status'],
     'third_party' => [
         'business_name',
@@ -318,6 +323,20 @@ it('pyme_app cannot insert id or company_id on any public table with a company_i
     }
 
     $this->assertSame([], $actual, 'Table.column pairs where pyme_app can insert id or company_id and must not.');
+});
+
+it('pyme_app has no privileges on the municipality sequence', function (): void {
+    $row = DB::selectOne(<<<'SQL'
+        select has_sequence_privilege('pyme_app', 'public.municipality_id_seq', 'USAGE') as can_use,
+               has_sequence_privilege('pyme_app', 'public.municipality_id_seq', 'SELECT') as can_select,
+               has_sequence_privilege('pyme_app', 'public.municipality_id_seq', 'UPDATE') as can_update
+        SQL);
+
+    $this->assertSame(
+        ['USAGE' => false, 'SELECT' => false, 'UPDATE' => false],
+        ['USAGE' => (bool) $row->can_use, 'SELECT' => (bool) $row->can_select, 'UPDATE' => (bool) $row->can_update],
+        'Privilege → whether pyme_app has it on municipality_id_seq (only the owner writes the catalog).',
+    );
 });
 
 it('pyme_app has no privileges on migrations', function (): void {

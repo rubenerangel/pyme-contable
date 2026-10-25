@@ -201,6 +201,34 @@ it('deletes nothing of another company and its rows survive', function (): void 
     ]);
 });
 
+it('the public tables without a company_id column are exactly TenantCatalog::TABLES_WITHOUT_COMPANY_ID', function (): void {
+    $actual = array_column(DB::select(<<<'SQL'
+        select c.relname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and not exists (
+              select 1 from pg_attribute a
+              where a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
+          )
+        order by c.relname collate "C"
+        SQL), 'relname');
+
+    // Guard against passing on an empty result.
+    expect($actual)->toContain('users');
+
+    $extra = array_values(array_diff($actual, TenantCatalog::TABLES_WITHOUT_COMPANY_ID));
+    $missing = array_values(array_diff(TenantCatalog::TABLES_WITHOUT_COMPANY_ID, $actual));
+
+    $this->assertSame(
+        TenantCatalog::TABLES_WITHOUT_COMPANY_ID,
+        $actual,
+        'Tables of public without company_id versus TenantCatalog::TABLES_WITHOUT_COMPANY_ID. Extra (a business table that forgot company_id, or a global one not declared): '
+            .json_encode($extra).'. Missing (declared global but absent or with company_id): '.json_encode($missing).'.',
+    );
+});
+
 it('every public table with a company_id column has RLS enabled, forced and at least one policy, except the global tables', function (): void {
     $actual = [];
     foreach (DB::select(<<<'SQL'

@@ -16,6 +16,10 @@ trait DatabaseTruncationAsOwner
         migrateFreshUsing as laravelMigrateFreshUsing;
     }
 
+    // Global catalogs seeded by migrations: truncating them would leave them empty for the rest of the suite.
+    // Laravel adds the migrations table to this list on its own.
+    protected array $exceptTables = ['municipality'];
+
     protected function migrateFreshUsing()
     {
         // With --path Laravel does not load migration paths registered by packages; if one needs them, add them here.
