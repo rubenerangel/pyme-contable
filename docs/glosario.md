@@ -8,6 +8,7 @@ Los términos marcados "revisar" se confirman cuando se modelen.
 |---|---|---|
 | empresa | company | |
 | membresía empresa-usuario | company_user | |
+| documento | document | Borrador si no tiene asiento, contabilizado si lo tiene. |
 | asiento | journal_entry | |
 | línea de asiento | journal_entry_line | |
 | cuenta (PUC) | account | |
