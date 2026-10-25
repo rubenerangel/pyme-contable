@@ -13,6 +13,7 @@ Los términos marcados "revisar" se confirman cuando se modelen.
 | cuenta (PUC) | account | |
 | débito | debit | |
 | crédito | credit | |
+| naturaleza de la cuenta | normal_balance | Enum NormalBalance (debit, credit). |
 | tercero | third_party | |
 | centro de costo | cost_center | |
 | obra | construction_project | revisar |
