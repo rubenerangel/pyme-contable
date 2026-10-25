@@ -277,6 +277,7 @@ Un objetivo de menor prioridad nunca relaja uno de mayor. Si una meta de rendimi
 - Las invariantes que viven en Postgres (trigger de cuadre, inmutabilidad, RLS, permisos, consecutivos) se prueban con integración contra la base real, porque un mock no las prueba.
 - Cuadre dentro de RefreshDatabase: se inserta normal y al final se ejecuta SET CONSTRAINTS ALL IMMEDIATE, que dispara en ese momento los chequeos diferidos pendientes. Nunca al inicio del test, porque haría fallar asientos válidos insertados en varias sentencias.
 - Concurrencia (consecutivos, cierre contra contabilización) con DatabaseTruncation y conexiones separadas que hacen commit real.
+- Si la sentencia de B tiene que seguir esperando mientras A hace commit (por ejemplo, para ver que B bloquea antes de decidir), B corre en un proceso PHP aparte y la espera se confirma con pg_blocking_pids, porque PDO es síncrono y en el mismo proceso B solo puede rendirse por lock_timeout y reintentar.
 - Mientras la contadora no entregue el catálogo, los tests usan un catálogo ficticio mínimo que no pretende ser el PUC.
 - Los casos golden viven como archivos de datos versionados (entrada, asiento esperado, estado de aprobación) que la UI muestra a la contadora.
 - Frontend: tests de componentes de los flujos de validación y de la previsualización del asiento.
