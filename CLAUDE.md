@@ -4,7 +4,7 @@ Sistema contable por conceptos para pymes de construcción en Colombia. Laravel 
 
 ## Documentación (fuente de verdad, léela antes de proponer cambios)
 
-- [docs/decisiones.md](docs/decisiones.md): stack, arquitectura, decisiones de diseño, multi-tenant, requisitos no funcionales, tests.
+- [docs/decisiones.md](docs/decisiones.md): stack, arquitectura, decisiones de diseño, multi-tenant, requisitos no funcionales, trade-offs y orden de prioridad, tests.
 - [docs/estado.md](docs/estado.md): fases, bloques y avance. Dice qué sigue y qué está bloqueado.
 - [docs/entorno.md](docs/entorno.md): WSL, Docker, puertos, alias npmd.
 - [docs/desarrollo.md](docs/desarrollo.md): comandos.

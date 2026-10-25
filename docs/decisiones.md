@@ -229,6 +229,40 @@ Dónde se hace cumplir cada regla:
 
 - Importar y exportar Excel, PDF de reportes, exportación para exógena.
 
+## Trade-offs
+
+Los requisitos no funcionales fijan metas. Esta sección registra qué se pagó por cada decisión estructural y qué señal obliga a reabrirla. Una decisión nueva con costo real entra aquí con las mismas columnas.
+
+### Prioridad cuando dos objetivos chocan
+
+1. Integridad contable: las invariantes de CLAUDE.md.
+2. Aislamiento entre empresas y seguridad.
+3. Cumplimiento y conservación.
+4. Rendimiento dentro de las metas.
+5. Simplicidad y costo de operación.
+6. Comodidad de uso.
+
+Un objetivo de menor prioridad nunca relaja uno de mayor. Si una meta de rendimiento no se alcanza sin tocar una invariante, se revisa la meta con el cliente, no la invariante. Los agentes revisores usan este orden para desempatar.
+
+### Decisiones y su costo
+
+| Decisión | Ganamos | Pagamos | Se revisa si |
+|---|---|---|---|
+| Contador con bloqueo de fila | Consecutivos sin huecos | Contabilizar se serializa por empresa y tipo de documento | La medición supera 1 s por contención en el contador |
+| Sin tabla de saldos | Una sola fuente, sin invalidación ni conciliación interna | Los reportes leen las líneas | Auxiliar o balance tardan más de 3 s con 1 millón de líneas |
+| Invariantes en triggers y en dominio | La red no depende del código de la aplicación | Doble mantenimiento, SQLSTATE que traducir, cargas masivas más lentas | Importación, saldos iniciales o cierre no caben en una ventana razonable |
+| Contexto con set_config de sesión | Simple y correcto con PHP-FPM sin conexiones persistentes | Impide pooler en modo transacción y Octane | El hosting o la carga exigen pooler |
+| Bitácora por trigger con SECURITY DEFINER | Evidencia que la aplicación no puede fabricar | Más escrituras por cada cambio, audit_log crece sin límite | Latencia de escritura o tamaño de audit_log |
+| Estrategias en código, sin DSL | Testeables, versionadas, suite golden | Cada cambio de fórmula es un despliegue y depende del desarrollador | La contadora pide cambios de fórmula con frecuencia, no solo de parámetros |
+| Cuentas y terceros por empresa | Aislamiento, nadie gobierna datos compartidos | Duplicación entre empresas de la misma contadora, sin consolidación | La contadora necesita consolidar o reutilizar terceros entre empresas |
+| Moneda única COP | Libro simple | Operaciones en moneda extranjera solo como dato del documento | La contadora confirma operaciones en divisas con diferencia en cambio |
+| Sin tabla genérica de idempotencia en la API | Menos piezas | Un reintento sin identidad externa puede crear un borrador duplicado | Llegan integraciones (factura electrónica, WhatsApp) |
+| Conservación legal con contacto suprimible aparte | Cumplir conservación y Habeas Data a la vez | Dos regímenes de datos por tercero; la supresión no alcanza los backups hasta que vencen | Concepto del abogado |
+| Segregación configurable con control compensatorio | Usable cuando una sola persona lleva todo | El control es posterior, no preventivo | Crece el equipo del cliente o lo exige una auditoría |
+| Avanzar sin la contadora en lo que no depende de ella | No bloquear el desarrollo | Retrabajo si sus respuestas cambian el modelo | Cada respuesta de docs/preguntas-contadora.md |
+| Desarrollador único y monolito modular | Velocidad y coherencia | Si el desarrollador para, el proyecto para; mitigado con docs/ y exportación en formato abierto | Entra un segundo desarrollador |
+| Revisores con Opus solo por disparadores | Revisión profunda donde el riesgo es alto, costo acotado | Los pasos sin disparador no tienen revisión especializada | Un hallazgo se escapa en un paso sin revisor |
+
 ## UI de validación (React)
 
 - Desde el inicio, para que la contadora vea el avance y valide: selector de empresa activa, plan de cuentas, registro de un concepto con previsualización del asiento antes de contabilizar, libro auxiliar, balance de prueba y casos golden con aprobar o rechazar y comentario, que queda en la bitácora con fecha y usuario.
