@@ -280,6 +280,69 @@ it('moves a descendant up under an ancestor, which is not a cycle', function ():
     ]);
 });
 
+// Hierarchy: a postable account has no children, on a multi-row INSERT. Ids are never passed (pyme_app will lose INSERT
+// on id), so they are predicted: nextval('account_id_seq') returns N, and the next two rows of one statement get N+1 and
+// N+2 in the order of the VALUES list. The row order inside a statement must not matter to the rule. All rows of one
+// multi-row INSERT need the same columns, hence the explicit parent_id => null on the root.
+
+/**
+ * Next value of the account id sequence, consumed. The next INSERT of two rows gets this value plus 1 and plus 2.
+ */
+function accountTestConsumeSequenceValue(): int
+{
+    return (int) DB::selectOne("select nextval('account_id_seq') as id")->id;
+}
+
+/**
+ * The accounts of the company in context as [id => [code, parent_id]], ordered by id.
+ *
+ * @return array<int, array{string, int|null}>
+ */
+function accountTestHierarchy(): array
+{
+    $accounts = [];
+    foreach (DB::select('select id, code, parent_id from account order by id') as $row) {
+        $accounts[(int) $row->id] = [$row->code, $row->parent_id === null ? null : (int) $row->parent_id];
+    }
+
+    return $accounts;
+}
+
+it('rejects a multi-row INSERT with the child first and its postable parent second (SQLSTATE 23514)', function (): void {
+    AccountFixtures::enterNewCompany();
+    $n = accountTestConsumeSequenceValue();
+
+    accountTestExpectSqlState(fn () => DB::table('account')->insert([
+        accountTestRow(['code' => 'T1.1', 'parent_id' => $n + 2]),
+        accountTestRow(['code' => 'T1', 'parent_id' => null, 'is_postable' => true]),
+    ]), '23514');
+});
+
+it('rejects a multi-row INSERT with the postable parent first and its child second (SQLSTATE 23514)', function (): void {
+    AccountFixtures::enterNewCompany();
+    $n = accountTestConsumeSequenceValue();
+
+    accountTestExpectSqlState(fn () => DB::table('account')->insert([
+        accountTestRow(['code' => 'T1', 'parent_id' => null, 'is_postable' => true]),
+        accountTestRow(['code' => 'T1.1', 'parent_id' => $n + 1]),
+    ]), '23514');
+});
+
+it('accepts the same multi-row INSERT with the child first when the parent is not postable, and the predicted ids hold', function (): void {
+    AccountFixtures::enterNewCompany();
+    $n = accountTestConsumeSequenceValue();
+
+    DB::table('account')->insert([
+        accountTestRow(['code' => 'T1.1', 'parent_id' => $n + 2]),
+        accountTestRow(['code' => 'T1', 'parent_id' => null]),
+    ]);
+
+    expect(accountTestHierarchy())->toBe([
+        $n + 1 => ['T1.1', $n + 2],
+        $n + 2 => ['T1', null],
+    ]);
+});
+
 // Composite foreign key (company_id, parent_id).
 
 it('rejects a parent that belongs to another company (composite FK, SQLSTATE 23503)', function (): void {
@@ -289,6 +352,32 @@ it('rejects a parent that belongs to another company (composite FK, SQLSTATE 235
     AccountFixtures::enterNewCompany();
 
     accountTestExpectSqlState(fn () => accountTestInsert('T1.1', $foreignParentId), '23503');
+});
+
+it('rejects moving an account under a parent that belongs to another company (composite FK, SQLSTATE 23503)', function (): void {
+    AccountFixtures::enterNewCompany();
+    $foreignParentId = accountTestInsert('T1');
+
+    AccountFixtures::enterNewCompany();
+    $movedId = accountTestInsert('T2');
+
+    accountTestExpectSqlState(fn () => DB::table('account')->where('id', $movedId)->update(['parent_id' => $foreignParentId]), '23503');
+});
+
+it('moves an account under a non-postable parent of its own company, with an account of another company present', function (): void {
+    AccountFixtures::enterNewCompany();
+    accountTestInsert('T1');
+
+    AccountFixtures::enterNewCompany();
+    $ownParentId = accountTestInsert('T1');
+    $movedId = accountTestInsert('T2');
+
+    $affected = DB::table('account')->where('id', $movedId)->update(['parent_id' => $ownParentId]);
+
+    expect(['affected' => $affected, 'parent_id' => accountTestParentOf($movedId)])->toBe([
+        'affected' => 1,
+        'parent_id' => $ownParentId,
+    ]);
 });
 
 it('rejects a parent that does not exist (composite FK, SQLSTATE 23503)', function (): void {

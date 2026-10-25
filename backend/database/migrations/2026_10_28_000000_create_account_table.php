@@ -63,7 +63,10 @@ return new class extends Migration
         //  - FOR SHARE is not allowed in a recursive CTE, so the ancestors are walked in a loop, locking each one. Two
         //    crossed moves (A under B and B under A) lock the same rows in opposite order.
         // The postable check looks for children without locking them: the lock on the account itself is the one that
-        // serializes against the creation of a child.
+        // serializes against the creation of a child. It runs on INSERT too: in a multi-row INSERT the child can be
+        // processed before its postable parent, so the child's trigger does not find the parent, while the foreign key,
+        // checked at the end of the statement, does. A BEFORE ROW trigger sees the rows already processed by the same
+        // statement, so the parent's trigger sees the child and rejects it.
         // migrate:fresh does not drop functions and CREATE OR REPLACE keeps the ACL and the owner of the previous one,
         // so the function is dropped first (no CASCADE: the table and its trigger are already gone).
         DB::statement('DROP FUNCTION IF EXISTS account_enforce_hierarchy()');
@@ -99,7 +102,7 @@ return new class extends Migration
                     END LOOP;
                 END IF;
 
-                IF TG_OP = 'UPDATE' AND NEW.is_postable AND EXISTS (SELECT 1 FROM account WHERE parent_id = NEW.id) THEN
+                IF NEW.is_postable AND EXISTS (SELECT 1 FROM account WHERE parent_id = NEW.id) THEN
                     RAISE EXCEPTION 'account hierarchy: account % has children and cannot be postable', NEW.id
                         USING ERRCODE = 'check_violation';
                 END IF;
