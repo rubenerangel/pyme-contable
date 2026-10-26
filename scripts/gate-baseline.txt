@@ -192,6 +192,13 @@ backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app inser
 backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "period""
 backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "third_party""
 backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app move journal_entry_line_id_seq backwards (only USAGE, no UPDATE: setval gives SQLSTATE 42501)
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app update a primary key column (no UPDATE privilege on the column, SQLSTATE 42501) with data set "dataset "companies.id""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app update a primary key column (no UPDATE privilege on the column, SQLSTATE 42501) with data set "dataset "company_user.company_id""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app update a primary key column (no UPDATE privilege on the column, SQLSTATE 42501) with data set "dataset "company_user.user_id""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app update a primary key column (no UPDATE privilege on the column, SQLSTATE 42501) with data set "dataset "users.id""
+backend/tests/Integration/AppPermissionsTest.php::it lets pyme_app update the name of a company and moves updated_at
+backend/tests/Integration/AppPermissionsTest.php::it lets pyme_app update the name of a user
+backend/tests/Integration/AppPermissionsTest.php::it lets pyme_app update the remember token of a user
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into construction_project without an id and gets one (USAGE on construction_project_id_seq)
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into cost_center without an id and gets one (USAGE on cost_center_id_seq)
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into document without an id and gets one (USAGE on document_id_seq)
@@ -208,6 +215,7 @@ backend/tests/Integration/AppPermissionsTest.php::it pyme_app has exactly the ex
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app has exactly the expected privileges on every public table except migrations
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no TRUNCATE, REFERENCES, TRIGGER or MAINTAIN on any public table
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no UPDATE (table or any column) and no DELETE on the ledger tables journal_entry and journal_entry_line, nor on audit_log
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no UPDATE on any primary key column of a public table, except the declared ones
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no privileges on migrations
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no privileges on the municipality sequence
 backend/tests/Integration/AppPermissionsTest.php::it the default connection is pyme_app and pgsql_owner is pyme_owner, both on pyme_test
@@ -330,6 +338,10 @@ backend/tests/Integration/DatabaseCompanyContextTest.php::it entering a second c
 backend/tests/Integration/DatabaseCompanyContextTest.php::it entering the same company with another user replaces only the user
 backend/tests/Integration/DatabaseCompanyContextTest.php::it has no company and no user in context when nothing was entered
 backend/tests/Integration/DatabaseCompanyContextTest.php::it leave clears the company and the user and leaves both settings as an empty string
+backend/tests/Integration/DatabaseDriversTest.php::it overwrites a cache key through the upsert (ON CONFLICT DO UPDATE) with the second value
+backend/tests/Integration/DatabaseDriversTest.php::it takes over an expired lock of another owner with an UPDATE of owner and expiration, and refreshes it
+backend/tests/Integration/DatabaseDriversTest.php::it updates a session row found by a new handler instance (read() marks it as existing)
+backend/tests/Integration/DatabaseDriversTest.php::it updates an existing session row through the handler (second write is performUpdate)
 backend/tests/Integration/DatabaseRolesTest.php::it neither pyme_app nor pyme_owner can connect to the postgres database, but both can to pyme and pyme_test
 backend/tests/Integration/DatabaseRolesTest.php::it pg_db_role_setting has no default for pyme_app and no app.* default for any role or database
 backend/tests/Integration/DatabaseRolesTest.php::it pg_parameter_acl grants nothing on app.* parameters and nothing to PUBLIC or to roles pyme_app belongs to
