@@ -324,8 +324,12 @@ backend/tests/Integration/DatabaseCompanyContextTest.php::it entering the same c
 backend/tests/Integration/DatabaseCompanyContextTest.php::it has no company and no user in context when nothing was entered
 backend/tests/Integration/DatabaseCompanyContextTest.php::it leave clears the company and the user and leaves both settings as an empty string
 backend/tests/Integration/DatabaseRolesTest.php::it neither pyme_app nor pyme_owner can connect to the postgres database, but both can to pyme and pyme_test
+backend/tests/Integration/DatabaseRolesTest.php::it pg_db_role_setting has no default for pyme_app and no app.* default for any role or database
+backend/tests/Integration/DatabaseRolesTest.php::it pg_parameter_acl grants nothing on app.* parameters and nothing to PUBLIC or to roles pyme_app belongs to
 backend/tests/Integration/DatabaseRolesTest.php::it pyme_app can log in but has no administrative privileges
 backend/tests/Integration/DatabaseRolesTest.php::it pyme_app cannot become pyme_owner nor create objects in public
+backend/tests/Integration/DatabaseRolesTest.php::it pyme_app cannot set an app.company_id default for itself with data set "dataset "database-scoped default""
+backend/tests/Integration/DatabaseRolesTest.php::it pyme_app cannot set an app.company_id default for itself with data set "dataset "role-wide default""
 backend/tests/Integration/DatabaseRolesTest.php::it pyme_app does not own any relation, schema or database
 backend/tests/Integration/DatabaseRolesTest.php::it pyme_app has neither TEMP nor CREATE on the pyme and pyme_test databases
 backend/tests/Integration/DocumentCounterConcurrencyTest.php::it does not make B wait when it asks for another document type or another year than the one A holds
