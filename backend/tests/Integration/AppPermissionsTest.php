@@ -9,6 +9,8 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 use Tests\Support\AccountFixtures;
+use Tests\Support\LedgerFixtures;
+use Tests\Support\MasterDataFixtures;
 use Tests\Support\TenantCatalog;
 
 // The application runs as pyme_app (default connection) and migrations run as pyme_owner
@@ -19,11 +21,16 @@ uses(RefreshDatabaseAsOwner::class);
 
 // Complete map of every table in public (except migrations) to the privileges pyme_app must have on it, in
 // alphabetical order. A new table without an entry here makes the privileges test fail.
-// account, document_counter, document_type and period have no table-level INSERT or UPDATE: pyme_app inserts only the
+// account, construction_project, cost_center, document, document_counter, document_type, period and third_party have no
+// table-level INSERT or UPDATE: pyme_app inserts only the
 // columns declared in EXPECTED_COLUMN_INSERTS (never id or company_id, which take their DEFAULT) and updates only the
 // columns declared in EXPECTED_COLUMN_UPDATES.
+// journal_entry and journal_entry_line are the ledger: insert-only for pyme_app (SELECT, and INSERT only by column), with
+// no UPDATE and no DELETE of any kind, and an empty list in EXPECTED_COLUMN_UPDATES.
 // audit_log is read-only for pyme_app: it is written by SECURITY DEFINER functions that run as pyme_owner, so it has no
 // INSERT or UPDATE of any kind and is declared with an empty list in EXPECTED_COLUMN_INSERTS and EXPECTED_COLUMN_UPDATES.
+// municipality is the global catalog of DANE (DIVIPOLA), seeded by the migration that creates it: read-only for pyme_app,
+// with an empty list in EXPECTED_COLUMN_INSERTS and EXPECTED_COLUMN_UPDATES like audit_log, and no privilege on its sequence.
 // audit_probe is a tests-only table (backend/tests/database/migrations): it exists in public only during the tests. It
 // is the template of the audited tables, so it is no laxer than they are: no table-level INSERT or UPDATE, and column
 // privileges only on label.
@@ -35,14 +42,21 @@ const EXPECTED_TABLE_PRIVILEGES = [
     'cache_locks' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'companies' => ['INSERT', 'SELECT', 'UPDATE'],
     'company_user' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'construction_project' => ['DELETE', 'SELECT'],
+    'cost_center' => ['DELETE', 'SELECT'],
+    'document' => ['DELETE', 'SELECT'],
     'document_counter' => ['SELECT'],
     'document_type' => ['SELECT'],
     'failed_jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'job_batches' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'journal_entry' => ['SELECT'],
+    'journal_entry_line' => ['SELECT'],
+    'municipality' => ['SELECT'],
     'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
     'period' => ['SELECT'],
     'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'third_party' => ['DELETE', 'SELECT'],
     'users' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
 ];
 
@@ -66,9 +80,37 @@ const EXPECTED_COLUMN_INSERTS = [
     ],
     'audit_log' => [],
     'audit_probe' => ['label'],
+    'construction_project' => ['code', 'is_active', 'name'],
+    'cost_center' => ['code', 'is_active', 'name'],
+    'document' => ['description', 'document_date', 'document_type_id', 'reverses_document_id'],
     'document_counter' => ['document_type_id', 'last_number', 'year'],
     'document_type' => ['code', 'name', 'resets_yearly'],
+    'journal_entry' => ['accounting_date', 'document_id', 'number', 'period_id'],
+    'journal_entry_line' => [
+        'account_id',
+        'construction_project_id',
+        'cost_center_id',
+        'credit',
+        'debit',
+        'description',
+        'journal_entry_id',
+        'municipality_id',
+        'third_party_id',
+    ],
+    'municipality' => [],
     'period' => ['number', 'status', 'year'],
+    'third_party' => [
+        'business_name',
+        'country',
+        'first_name',
+        'first_surname',
+        'id_number',
+        'id_type',
+        'is_active',
+        'middle_names',
+        'person_type',
+        'second_surname',
+    ],
 ];
 
 // Tables with a company_id column on which pyme_app may insert id or company_id, each for its own reason.
@@ -97,9 +139,27 @@ const EXPECTED_COLUMN_UPDATES = [
     ],
     'audit_log' => [],
     'audit_probe' => ['label'],
+    'construction_project' => ['code', 'is_active', 'name'],
+    'cost_center' => ['code', 'is_active', 'name'],
+    'document' => ['description', 'document_date', 'document_type_id', 'reverses_document_id'],
     'document_counter' => ['last_number'],
     'document_type' => ['name'],
+    'journal_entry' => [],
+    'journal_entry_line' => [],
+    'municipality' => [],
     'period' => ['status'],
+    'third_party' => [
+        'business_name',
+        'country',
+        'first_name',
+        'first_surname',
+        'id_number',
+        'id_type',
+        'is_active',
+        'middle_names',
+        'person_type',
+        'second_surname',
+    ],
 ];
 
 const TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'];
@@ -259,7 +319,7 @@ it('pyme_app cannot insert id or company_id on any public table with a company_i
     $tenantTables = TenantCatalog::tablesWithCompanyId();
 
     // Guard against passing on an empty result: the catalog must see the tenant tables this rule is about.
-    foreach (['account', 'audit_log', 'document_counter', 'document_type', 'period'] as $table) {
+    foreach (['account', 'audit_log', 'construction_project', 'cost_center', 'document', 'document_counter', 'document_type', 'journal_entry', 'journal_entry_line', 'period', 'third_party'] as $table) {
         $this->assertContains($table, $tenantTables, "The catalog query must find $table among the tables with a company_id column.");
     }
 
@@ -285,6 +345,53 @@ it('pyme_app cannot insert id or company_id on any public table with a company_i
     }
 
     $this->assertSame([], $actual, 'Table.column pairs where pyme_app can insert id or company_id and must not.');
+});
+
+it('pyme_app has no privileges on the municipality sequence', function (): void {
+    $row = DB::selectOne(<<<'SQL'
+        select has_sequence_privilege('pyme_app', 'public.municipality_id_seq', 'USAGE') as can_use,
+               has_sequence_privilege('pyme_app', 'public.municipality_id_seq', 'SELECT') as can_select,
+               has_sequence_privilege('pyme_app', 'public.municipality_id_seq', 'UPDATE') as can_update
+        SQL);
+
+    $this->assertSame(
+        ['USAGE' => false, 'SELECT' => false, 'UPDATE' => false],
+        ['USAGE' => (bool) $row->can_use, 'SELECT' => (bool) $row->can_select, 'UPDATE' => (bool) $row->can_update],
+        'Privilege → whether pyme_app has it on municipality_id_seq (only the owner writes the catalog).',
+    );
+});
+
+it('pyme_app has no UPDATE (table or any column) and no DELETE on the ledger tables journal_entry and journal_entry_line, nor on audit_log', function (): void {
+    $tables = ['audit_log', 'journal_entry', 'journal_entry_line'];
+
+    // Guard against passing on an empty result: has_*_privilege returns NULL for a table that does not exist, and a
+    // NULL would filter every row out and pass.
+    $found = array_column(DB::select(<<<'SQL'
+        select c.relname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and c.relname = any(?::text[])
+        order by c.relname
+        SQL, ['{'.implode(',', $tables).'}']), 'relname');
+    $this->assertSame($tables, $found, 'The ledger tables and audit_log must exist in public for this rule to be checked.');
+
+    $extra = array_column(DB::select(<<<'SQL'
+        select c.relname || ': ' || p.privilege as pair
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        cross join unnest(array['UPDATE', 'DELETE']) as p(privilege)
+        where n.nspname = 'public'
+          and c.relname = any(?::text[])
+          and case p.privilege
+                  when 'UPDATE' then has_any_column_privilege('pyme_app', c.oid, 'UPDATE')
+                  else has_table_privilege('pyme_app', c.oid, 'DELETE')
+              end
+        order by c.relname, p.privilege
+        SQL, ['{'.implode(',', $tables).'}']), 'pair');
+
+    $this->assertSame([], $extra, 'Table: privilege pairs that pyme_app must not have (UPDATE on the table or on any column, DELETE).');
 });
 
 it('pyme_app has no privileges on migrations', function (): void {
@@ -358,16 +465,86 @@ it('pyme_app can insert into document_counter without an id and gets one (USAGE 
     $this->assertGreaterThan(0, (int) $id, 'The insert into document_counter as pyme_app must return a generated id.');
 });
 
+it('pyme_app can insert into third_party without an id and gets one (USAGE on third_party_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('third_party')->insertGetId(MasterDataFixtures::thirdPartyRow());
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into third_party as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into cost_center without an id and gets one (USAGE on cost_center_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('cost_center')->insertGetId(MasterDataFixtures::costCenterRow());
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into cost_center as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into construction_project without an id and gets one (USAGE on construction_project_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+
+    $id = DB::table('construction_project')->insertGetId(MasterDataFixtures::constructionProjectRow());
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into construction_project as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into document without an id and gets one (USAGE on document_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+    $typeId = LedgerFixtures::insertDocumentType();
+
+    $id = DB::table('document')->insertGetId(['document_type_id' => $typeId, 'document_date' => '2026-01-15']);
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into document as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into journal_entry without an id and gets one (USAGE on journal_entry_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+    $periodId = LedgerFixtures::insertPeriod();
+    $documentId = LedgerFixtures::insertDocument(LedgerFixtures::insertDocumentType());
+
+    $id = DB::table('journal_entry')->insertGetId([
+        'document_id' => $documentId,
+        'period_id' => $periodId,
+        'accounting_date' => '2026-01-15',
+        'number' => 1,
+    ]);
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into journal_entry as pyme_app must return a generated id.');
+});
+
+it('pyme_app can insert into journal_entry_line without an id and gets one (USAGE on journal_entry_line_id_seq)', function (): void {
+    enterCompanyForSequenceChecks();
+    $periodId = LedgerFixtures::insertPeriod();
+    $documentId = LedgerFixtures::insertDocument(LedgerFixtures::insertDocumentType());
+    $entryId = LedgerFixtures::insertEntry($documentId, $periodId);
+    $accountId = LedgerFixtures::insertPostableAccount('T1');
+
+    $id = DB::table('journal_entry_line')->insertGetId([
+        'journal_entry_id' => $entryId,
+        'account_id' => $accountId,
+        'debit' => '100.00',
+    ]);
+
+    $this->assertGreaterThan(0, (int) $id, 'The insert into journal_entry_line as pyme_app must return a generated id.');
+});
+
 const TENANT_TABLES_WITH_COLUMN_INSERTS = [
     'account' => ['account'],
     'period' => ['period'],
     'document_type' => ['document_type'],
     'document_counter' => ['document_counter'],
+    'third_party' => ['third_party'],
+    'cost_center' => ['cost_center'],
+    'construction_project' => ['construction_project'],
+    'document' => ['document'],
+    'journal_entry' => ['journal_entry'],
+    'journal_entry_line' => ['journal_entry_line'],
 ];
 
 /**
  * A minimal valid row for the table, without id or company_id. The company context must already be entered, because
- * document_counter needs a document type of the company first.
+ * document_counter and the ledger tables need rows of the company first (a document type, a period, a document, an entry).
  *
  * @return array<string, mixed>
  */
@@ -376,12 +553,33 @@ function appPermissionsMinimalRow(string $table): array
     return match ($table) {
         'account' => AccountFixtures::minimalRow(),
         'period' => ['year' => 2026, 'number' => 1],
+        'third_party' => MasterDataFixtures::thirdPartyRow(),
+        'cost_center' => MasterDataFixtures::costCenterRow(),
+        'construction_project' => MasterDataFixtures::constructionProjectRow(),
         'document_type' => ['code' => 'INV', 'name' => 'Invoice', 'resets_yearly' => true],
         // last_number must be 1 on insert (counter trigger).
         'document_counter' => [
             'document_type_id' => DB::table('document_type')->insertGetId(['code' => 'INV', 'name' => 'Invoice', 'resets_yearly' => true]),
             'year' => 2026,
             'last_number' => 1,
+        ],
+        'document' => [
+            'document_type_id' => LedgerFixtures::insertDocumentType(),
+            'document_date' => '2026-01-15',
+        ],
+        'journal_entry' => [
+            'document_id' => LedgerFixtures::insertDocument(LedgerFixtures::insertDocumentType()),
+            'period_id' => LedgerFixtures::insertPeriod(),
+            'accounting_date' => '2026-01-15',
+            'number' => 1,
+        ],
+        'journal_entry_line' => [
+            'journal_entry_id' => LedgerFixtures::insertEntry(
+                LedgerFixtures::insertDocument(LedgerFixtures::insertDocumentType()),
+                LedgerFixtures::insertPeriod(),
+            ),
+            'account_id' => LedgerFixtures::insertPostableAccount('T1'),
+            'debit' => '100.00',
         ],
     };
 }

@@ -9,3 +9,4 @@
 - Sin Node ni PHP instalados en WSL: todo corre en contenedores. Node con la imagen node:24-bookworm-slim (jsdom exige Node 22.22.2 o 24.15 o superior) mediante el alias npmd, definido en ~/.bashrc y usado desde la raíz del repo:
   alias npmd='docker run --rm -it -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_update_notifier=false -v "$PWD/frontend":/app -w /app node:24-bookworm-slim'
 - El PATH de WSL incluye el npm de Windows (/mnt/c/Program Files/nodejs/npm). Nunca usar npm suelto en el repo, siempre npmd.
+- python3 3.8 o superior en WSL es obligatorio (Ubuntu 20.04 trae 3.8). El hook .claude/hooks/role_guard.py corre con el python3 del host antes de cada Edit, Write y Bash, y falla cerrado: sin python3, o si el hook se cae, bloquea todo, también la sesión principal.

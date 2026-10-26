@@ -22,6 +22,11 @@
 - Si cada empresa maneja los suyos, aunque el mismo NIT aparezca en dos empresas.
 - Qué datos del RUT necesitan las reglas (responsabilidades, autorretenedor, gran contribuyente) y si la condición se fija por documento.
 
+## Obras y centros de costo
+
+- Qué datos necesitan de cada obra: cliente, contrato, tipo de contrato (AIU o precio global), municipio de ejecución, fechas y cómo se reconoce su ingreso.
+- Qué centros de costo usan, si tienen jerarquía y si una obra es a la vez un centro de costo o una dimensión aparte.
+
 ## Montos y redondeo
 
 - Si llevan centavos o todo se registra al peso.

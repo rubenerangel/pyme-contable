@@ -34,6 +34,10 @@ return new class extends Migration
                 WITH CHECK (company_id = nullif(current_setting('app.company_id', true), '')::bigint)
             SQL);
 
+        // The foreign key to companies needs an index that starts with company_id, like the real tables get from their
+        // composite unique keys (ForeignKeyCatalogTest). The probe has no such key.
+        DB::statement('CREATE INDEX audit_probe_company_id_index ON audit_probe (company_id)');
+
         DB::statement('GRANT SELECT, DELETE ON audit_probe TO pyme_app');
         DB::statement('GRANT INSERT (label) ON audit_probe TO pyme_app');
         DB::statement('GRANT UPDATE (label) ON audit_probe TO pyme_app');

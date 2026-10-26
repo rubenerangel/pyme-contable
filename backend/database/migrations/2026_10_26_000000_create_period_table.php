@@ -16,7 +16,8 @@ return new class extends Migration
         // not fail for a number outside 0 to 13: every CASE falls to NULL there and the insert fails with the CHECK
         // (23514), not with a date error (22008 from make_date). make_date and the integer arithmetic on dates are
         // IMMUTABLE, which generated columns require. The end of month n is the day before the first of month n + 1;
-        // 12 and 13 end on December 31 and 0 is the single day of January 1.
+        // 12 and 13 end on December 31 and 0 is the single day of January 1. UNIQUE (company_id, id) is the target of the
+        // composite foreign key from journal_entry, so an entry cannot point at a period of another company.
         DB::statement(<<<'SQL'
             CREATE TABLE period (
                 id bigserial PRIMARY KEY,
@@ -47,7 +48,8 @@ return new class extends Migration
                         WHEN number IN (12, 13) THEN make_date(year::int, 12, 31)
                     END
                 ) STORED,
-                CONSTRAINT period_company_id_year_number_key UNIQUE (company_id, year, number)
+                CONSTRAINT period_company_id_year_number_key UNIQUE (company_id, year, number),
+                CONSTRAINT period_company_id_id_key UNIQUE (company_id, id)
             )
             SQL);
 

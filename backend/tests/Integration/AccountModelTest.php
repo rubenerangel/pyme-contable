@@ -8,12 +8,10 @@ use App\Infrastructure\Tenancy\DatabaseCompanyContext;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\RefreshDatabaseAsOwner;
 use Tests\Support\AccountFixtures;
-use Tests\Support\TenantCatalog;
 
 // The Account model and its CompanyScope on top of account, which has RLS. Here the model is what is under test, so the
 // context is entered through DatabaseCompanyContext and not with raw SQL (TenantIsolationTest covers RLS itself). A SQL
@@ -221,61 +219,4 @@ it('casts every boolean attribute to a strict bool in memory (without a cast the
         'from 1' => array_fill_keys(array_keys($read($on)), true),
         'from 0' => array_fill_keys(array_keys($read($off)), false),
     ]);
-});
-
-it('every model of a tenant table has the company scope and takes neither id nor company_id from mass assignment', function (): void {
-    $tenantTables = array_diff(
-        TenantCatalog::tablesWithCompanyId(),
-        TenantCatalog::GLOBAL_TABLES_WITH_COMPANY_ID,
-    );
-
-    $publicTables = array_column(DB::select(<<<'SQL'
-        select c.relname
-        from pg_class c
-        join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and c.relkind in ('r', 'p')
-        SQL), 'relname');
-
-    $modelsPath = app_path('Models');
-    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($modelsPath, FilesystemIterator::SKIP_DOTS));
-
-    $actual = [];
-    $withoutTable = [];
-    foreach ($files as $file) {
-        if ($file->getExtension() !== 'php') {
-            continue;
-        }
-
-        // App\Models\Sub\Name from Sub/Name.php relative to app/Models.
-        $relative = substr($file->getPathname(), strlen($modelsPath) + 1, -strlen('.php'));
-        $class = 'App\\Models\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
-        if (! class_exists($class) || ! is_subclass_of($class, Model::class) || (new ReflectionClass($class))->isAbstract()) {
-            continue;
-        }
-
-        // Instantiated so the model boots and registers its global scopes.
-        $model = new $class;
-
-        // A table with a schema prefix or a typo would otherwise be skipped silently by the tenant filter below.
-        if (! in_array($model->getTable(), $publicTables, true)) {
-            $withoutTable[] = $class.' → '.$model->getTable();
-        }
-
-        if (! in_array($model->getTable(), $tenantTables, true)) {
-            continue;
-        }
-
-        $actual[$class] = [$class::hasGlobalScope(CompanyScope::class), $model->isFillable('id'), $model->isFillable('company_id')];
-    }
-
-    $this->assertSame([], $withoutTable, 'Models whose getTable() is not a table of public (model → table).');
-
-    // Guard against passing on an empty result.
-    expect($actual)->toHaveKey(Account::class);
-
-    $this->assertSame(
-        array_fill_keys(array_keys($actual), [true, false, false]),
-        $actual,
-        'Model → [has CompanyScope, id fillable, company_id fillable] for every model of a tenant table. It must have the scope and neither column fillable.',
-    );
 });

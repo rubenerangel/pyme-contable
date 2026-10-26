@@ -15,9 +15,10 @@ use Tests\Support\TenantCatalog;
 uses(RefreshDatabaseAsOwner::class);
 
 // Tables with a company_id column that carry no audit trigger on purpose: audit_log is the ledger itself and
-// document_counter changes on every posting (the document will be audited). audit_probe is the tests-only table that
-// carries the triggers.
-const AUDIT_EXEMPT_TABLES = ['audit_log', 'document_counter'];
+// document_counter changes on every posting (the document is audited). journal_entry and journal_entry_line are the
+// books: insert-only and immutable, so auditing them would duplicate every line, and the posting event is recorded by
+// the action that posts. audit_probe is the tests-only table that carries the triggers.
+const AUDIT_EXEMPT_TABLES = ['audit_log', 'document_counter', 'journal_entry', 'journal_entry_line'];
 
 // The company predicate every tenant policy must use, as Postgres 17 prints it in pg_policies. If a Postgres upgrade
 // changes how it prints this expression, update it here after checking that the meaning is the same.
@@ -201,6 +202,34 @@ it('deletes nothing of another company and its rows survive', function (): void 
     ]);
 });
 
+it('the public tables without a company_id column are exactly TenantCatalog::TABLES_WITHOUT_COMPANY_ID', function (): void {
+    $actual = array_column(DB::select(<<<'SQL'
+        select c.relname
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and not exists (
+              select 1 from pg_attribute a
+              where a.attrelid = c.oid and a.attname = 'company_id' and not a.attisdropped
+          )
+        order by c.relname collate "C"
+        SQL), 'relname');
+
+    // Guard against passing on an empty result.
+    expect($actual)->toContain('users');
+
+    $extra = array_values(array_diff($actual, TenantCatalog::TABLES_WITHOUT_COMPANY_ID));
+    $missing = array_values(array_diff(TenantCatalog::TABLES_WITHOUT_COMPANY_ID, $actual));
+
+    $this->assertSame(
+        TenantCatalog::TABLES_WITHOUT_COMPANY_ID,
+        $actual,
+        'Tables of public without company_id versus TenantCatalog::TABLES_WITHOUT_COMPANY_ID. Extra (a business table that forgot company_id, or a global one not declared): '
+            .json_encode($extra).'. Missing (declared global but absent or with company_id): '.json_encode($missing).'.',
+    );
+});
+
 it('every public table with a company_id column has RLS enabled, forced and at least one policy, except the global tables', function (): void {
     $actual = [];
     foreach (DB::select(<<<'SQL'
@@ -221,7 +250,7 @@ it('every public table with a company_id column has RLS enabled, forced and at l
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKey('account');
+    expect($actual)->toHaveKeys(['account', 'third_party', 'cost_center', 'construction_project', 'document', 'journal_entry', 'journal_entry_line']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), [true, true, true]),
@@ -248,7 +277,7 @@ it('every public table with a company_id column also has it NOT NULL with a DEFA
     }
 
     // Guard against passing on an empty result.
-    expect($actual)->toHaveKey('account');
+    expect($actual)->toHaveKeys(['account', 'third_party', 'cost_center', 'construction_project', 'document', 'journal_entry', 'journal_entry_line']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), [true, true]),
@@ -276,8 +305,8 @@ it('every public table with a company_id column has exactly the expected policie
         }
     }
 
-    // Guard against passing on an empty result: the exception and account must be covered.
-    expect($actual)->toHaveKeys(['account', 'audit_log']);
+    // Guard against passing on an empty result: the exception, account and the master tables must be covered.
+    expect($actual)->toHaveKeys(['account', 'audit_log', 'third_party', 'cost_center', 'construction_project', 'document', 'journal_entry', 'journal_entry_line']);
 
     $expected = [];
     foreach (array_keys($actual) as $table) {
@@ -330,12 +359,56 @@ it('every public tenant table, except the global and the exempt ones, has AFTER 
         $actual[$row->relname] = (int) $row->events;
     }
 
-    // Guard against passing on an empty result: the real audited tables and the probe must be covered.
-    expect($actual)->toHaveKeys(['account', 'audit_probe', 'document_type', 'period']);
+    // Guard against passing on an empty result: the real audited tables (document among them) and the probe must be
+    // covered.
+    expect($actual)->toHaveKeys(['account', 'audit_probe', 'document', 'document_type', 'period', 'third_party', 'cost_center', 'construction_project']);
 
     $this->assertSame(
         array_fill_keys(array_keys($actual), AUDIT_EVENTS_ALL),
         $actual,
         'Table → events covered by AFTER ROW triggers on audit_log_capture (INSERT 4 + DELETE 8 + UPDATE 16 = 28). A tenant table must cover all three.',
+    );
+});
+
+it('every unique constraint and unique index of a tenant table, primary key aside, has company_id among its key columns', function (): void {
+    // A UNIQUE without company_id would answer 23505 to one company when the value exists in another one: an existence
+    // oracle across companies (docs/decisiones.md, Multi-tenant: unique keys and composite FKs with company_id). This
+    // covers constraints (they own a unique index), plain, partial and expression indexes. An expression has indkey 0,
+    // which never matches company_id, so it only counts if company_id is also a column of the index. INCLUDE columns
+    // (beyond indnkeyatts) do not enforce uniqueness and are not counted.
+    $actual = [];
+    foreach (DB::select(<<<'SQL'
+        select c.relname as table_name,
+               i.relname as index_name,
+               exists (
+                   select 1
+                   from pg_attribute a
+                   join unnest(x.indkey::int2[]) with ordinality as k(attnum, pos) on k.attnum = a.attnum
+                   where a.attrelid = c.oid
+                     and a.attname = 'company_id'
+                     and not a.attisdropped
+                     and k.pos <= x.indnkeyatts
+               ) as has_company_id
+        from pg_index x
+        join pg_class c on c.oid = x.indrelid
+        join pg_class i on i.oid = x.indexrelid
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relname = any(?::text[])
+          and x.indisunique
+          and not x.indisprimary
+        order by c.relname, i.relname
+        SQL, [tenantTablesLiteral()]) as $row) {
+        $actual[$row->table_name.': '.$row->index_name] = (bool) $row->has_company_id;
+    }
+
+    // Guard against passing on an empty result: the unique keys of account, third_party, document and journal_entry must be seen.
+    $seenTables = array_unique(array_map(fn (string $key) => explode(': ', $key)[0], array_keys($actual)));
+    expect($seenTables)->toContain('account', 'third_party', 'document', 'journal_entry');
+
+    $this->assertSame(
+        [],
+        array_keys(array_filter($actual, fn (bool $hasCompanyId) => ! $hasCompanyId)),
+        'Unique constraints and unique indexes ("table: index") of tenant tables with no company_id among their key columns.',
     );
 });

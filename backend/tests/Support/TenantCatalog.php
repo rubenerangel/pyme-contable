@@ -19,6 +19,26 @@ final class TenantCatalog
     public const GLOBAL_TABLES_WITH_COMPANY_ID = ['company_user'];
 
     /**
+     * Complete list of the tables of public without a company_id column (global, no RLS), sorted by name. company_user
+     * is also global but has a company_id column, so it is in GLOBAL_TABLES_WITH_COMPANY_ID and not here. Adding a
+     * table here is deciding that it is global, see docs/decisiones.md, Multi-tenant. A business table that forgets
+     * its company_id shows up as extra in the catalog test of TenantIsolationTest and fails it.
+     */
+    public const TABLES_WITHOUT_COMPANY_ID = [
+        'cache',
+        'cache_locks',
+        'companies',
+        'failed_jobs',
+        'job_batches',
+        'jobs',
+        'migrations',
+        'municipality',
+        'password_reset_tokens',
+        'sessions',
+        'users',
+    ];
+
+    /**
      * Tables of public (ordinary or partitioned) with a company_id column that is not dropped, sorted by name.
      *
      * @return list<string>

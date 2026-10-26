@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: docker compose run --rm -u www-data php composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Composer audit
+        run: docker compose run --rm -u www-data php composer audit --no-interaction
+
       - name: Application key
         run: docker compose run --rm -u www-data php php artisan key:generate --no-interaction
 
@@ -64,7 +67,42 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  guards:
+    # The agent hook is a security control: its tests run like any other.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Hook tests
+        run: python3 -m unittest discover -s .claude/hooks -v
+
+      - name: settings.json is valid JSON
+        run: python3 -m json.tool .claude/settings.json > /dev/null
+
+  infra:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: actionlint
+        run: docker run --rm -v "$PWD":/repo:ro -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -color
+
+      - name: hadolint
+        run: docker run --rm -i hadolint/hadolint:v2.13.1@sha256:1fd499f411a9ff121fda3207af1c8d32e2a92648c19fb1847553c5b79ca4c281 < docker/php/Dockerfile
+
+      - name: Compose file
+        run: |
+          printf 'POSTGRES_PASSWORD=ci\nPYME_OWNER_PASSWORD=ci\nPYME_APP_PASSWORD=ci\n' > .env
+          docker compose config --quiet
