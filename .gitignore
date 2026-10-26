@@ -4,3 +4,5 @@
 .vscode/
 # Python bytecode from .claude/hooks tests
 __pycache__/
+# scripts/gate.py: state of a red run and the JUnit it reads
+.gate/

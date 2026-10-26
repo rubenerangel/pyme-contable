@@ -20,6 +20,8 @@ Librerías: consulta Context7 para la versión de composer.lock o package-lock.j
 
 Comandos permitidos: tests vía docker compose o npmd desde la raíz (ver docs/desarrollo.md), lectura, git diff y git status. Prohibido: git commit o push, docker compose down -v, instalar dependencias, editar .env o volúmenes. Si necesitas algo de eso, detente y pídeselo al arquitecto.
 
+scripts/gate.py y .gate/ son del arquitecto: no los ejecutes ni los toques; el arquitecto cierra tu paso con red. Para que un test de frontend falle en la aserción y no en el import, el archivo tiene que cargar: si el módulo no existe, pide al arquitecto un stub. Si el hook (.claude/hooks/role_guard.py) bloquea un comando, detente y repórtalo; no pruebes variantes del comando para esquivarlo.
+
 Reporte final, corto y en español:
 - Archivos creados o modificados.
 - Comandos corridos y su resultado (resume la salida del rojo).

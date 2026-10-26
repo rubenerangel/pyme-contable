@@ -9,8 +9,11 @@ so a crash or a missing python3 also blocks: the guard fails closed.
 Any agent with docker access is root in the containers, so this is not a sandbox.
 For tester and coder the guard is a railing against mistakes: a denylist that
 python -c or docker exec get around. For the reviewers it is a barrier, by
-allowlist: a command that is not listed does not run. Test hashes in
-scripts/gate arrive with G2.
+allowlist: a command that is not listed does not run. The barrier for tests
+is scripts/gate.py (G2), which hashes them; here tester and coder lose every
+Bash command that names the gate (running it, and also reading it: the Read
+tool still works) and its state, so a mistake cannot rewrite a red run.
+Compose decides what the gate runs, so it belongs to the architect.
 Compatible with Python 3.8 (Ubuntu 20.04).
 """
 import fnmatch
@@ -24,13 +27,15 @@ WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 WRITERS = {"tester", "coder"}
 DB_REVIEWERS = {"security-reviewer", "performance-reviewer"}
 
-TEST_FILE = re.compile(r"^(backend/tests/.+|frontend/src/.+\.test\.[cm]?[jt]sx?)$")
+# frontend/src/test/ holds the Vitest setup; scripts/gate.py protects it like the tests.
+TEST_FILE = re.compile(r"^(backend/tests/.+|frontend/src/test/.+|frontend/src/.+\.test\.[cm]?[jt]sx?)$")
 CODER_FORBIDDEN = re.compile(
-    r"^(backend/tests/|tests/|docs/|\.claude/|\.github/|scripts/|CLAUDE\.md$)"
-    r"|\.test\.[cm]?[jt]sx?$|(^|/)phpunit\.xml$|(^|/)\.env$|(^|/)\.git(/|$)"
+    r"^(backend/tests/|tests/|docs/|\.claude/|\.github/|scripts/|frontend/src/test/|CLAUDE\.md$)"
+    r"|^frontend/vite(st)?\.config\.|\.test\.[cm]?[jt]sx?$|(^|/)phpunit\.xml$|(^|/)\.env$|(^|/)\.git(/|$)"
+    r"|(^|/)\.gate(/|$)|^(docker-)?compose\.(override\.)?[^/]*$|(^|/)composer\.json$"
 )
 TESTER_PROTECTED = re.compile(
-    r"^(backend|frontend|db|docker|docs|scripts|\.claude|\.github)/|^(compose\.yaml|CLAUDE\.md|\.gitignore)$"
+    r"^(backend|frontend|db|docker|docs|scripts|\.claude|\.github|\.gate)/|^(compose\.yaml|CLAUDE\.md|\.gitignore)$"
 )
 
 ENV_FILE = re.compile(r"(^|[\s/'\"=])\.env($|[\s'\"])")
@@ -38,6 +43,8 @@ GLOB_WORD_SPLIT = re.compile(r"[\s'\"=;&|()<>]+")
 BRACES = re.compile(r"\{([^{}]*)\}")
 PSQL = re.compile(r"\bpsql\b")
 PSQL_USER = re.compile(r"(?:-U\s*|--username[= ])([\w-]+)")
+
+GATE_REASON = "scripts/gate.py belongs to the architect"
 
 DANGEROUS = [
     (re.compile(r"\bgit\s+(commit|push|merge|rebase|reset|checkout|switch|restore|stash|tag|cherry-pick|revert|clean)\b"),
@@ -54,6 +61,9 @@ DANGEROUS = [
                 r"|exec|x|link|ln|dedupe|ddp|prune)\b"),
      "dependency changes belong to the architect"),
     (re.compile(r"\bnpx\b"), "npx installs and runs packages"),
+    # gate.py runs red, lock and green; test_gate.py does not match (no word boundary after _).
+    # Globs and quotes are caught by names_gate.
+    (re.compile(r"\bgate\.py\b|\bscripts\.gate\b"), GATE_REASON),
     (re.compile(r"\bartisan\s+(-\S+\s+)*(migrate|db:)"), "migrations and db commands belong to the architect"),
     (re.compile(r"(^|[\s;&|(])rm\s+(-\S+\s+)*(-[a-zA-Z]*[rR]|--recursive)"), "recursive rm"),
 ]
@@ -151,7 +161,8 @@ def check_write(role, path, project_dir):
         return None if TEST_FILE.match(rel) else "tester only writes test files"
     if role == "coder":
         if CODER_FORBIDDEN.search(rel):
-            return "coder never edits tests, docs, .claude, .github, .git, scripts, phpunit.xml, CLAUDE.md or .env"
+            return ("coder never edits tests, test config, compose, composer.json, docs, .claude, .github, .git, .gate, "
+                    "scripts, CLAUDE.md or .env")
         return None
     return "{} is read-only".format(role or "this subagent")
 
@@ -185,17 +196,26 @@ def names_git(word):
     )
 
 
-def reaches_env(command):
-    """True when a shell word could name .env: raw words for globs and braces,
-    and words after quote removal, where .en''v becomes .env."""
-    if ENV_FILE.search(command):
-        return True
+def shell_words(command):
+    """Raw words for globs and braces, and words after quote removal, where .en''v becomes .env."""
     words = GLOB_WORD_SPLIT.split(command)
     try:
         words += [part for token in tokenize(command) for part in token.split("=")]
     except ValueError:
         pass
-    return any(names_env(word) for word in words)
+    return words
+
+
+def reaches_env(command):
+    return bool(ENV_FILE.search(command)) or any(names_env(word) for word in shell_words(command))
+
+
+def names_gate(word):
+    for pattern in expand_braces(word):
+        name = pattern.rsplit("/", 1)[-1]
+        if "." in name and fnmatch.fnmatchcase("gate.py", name):
+            return True
+    return False
 
 
 def check_sql(sql, writable):
@@ -410,9 +430,12 @@ def check_bash(role, command, project_dir):
         for pattern, reason in DANGEROUS:
             if pattern.search(command) or pattern.search(normalized):
                 return reason
+        if any(names_gate(word) for word in shell_words(command)):
+            return GATE_REASON
         if writes_protected_path(role, command, project_dir):
             if role == "coder":
-                return "coder never writes tests, docs, .claude, .github, .git, scripts or phpunit.xml, not even through Bash"
+                return ("coder never writes tests, test config, compose, composer.json, docs, .claude, .github, .git, "
+                        ".gate or scripts, not even through Bash")
             return "tester only writes test files, not even through Bash"
         return None
     return check_allowlisted_bash(role, command, project_dir)
