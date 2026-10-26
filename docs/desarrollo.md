@@ -73,6 +73,8 @@ python3 scripts/gate.py green                        # fin del paso 4: mismos ha
 python3 -m unittest discover -s scripts -v           # tests del gate y del runner de mutaciones
 ```
 
+Corre con el python3 de WSL y lanza las suites en Docker (necesita `docker compose up -d`). Los ids están en scripts/gate-baseline.txt. Ver [workflow.md](workflow.md), Gate de tests.
+
 ## Mutaciones SQL
 
 ```bash
@@ -81,8 +83,6 @@ python3 scripts/mutants.py account_no_force          # solo las nombradas
 ```
 
 Igual que el gate: python3 de WSL y Pest en Docker. Ver [workflow.md](workflow.md), Mutaciones SQL.
-
-Corre con el python3 de WSL y lanza las suites en Docker (necesita `docker compose up -d`). Los ids están en scripts/gate-baseline.txt. Ver [workflow.md](workflow.md), Gate de tests.
 
 ## Base de datos
 

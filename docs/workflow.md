@@ -88,8 +88,10 @@ Tres roles de construcción y tres revisores en Claude Code. Rubén aprueba plan
 [scripts/mutants.py](../scripts/mutants.py) comprueba que los tests de base de datos ven un esquema roto: lo que antes era un rojo a mano que se rompía en producción y se revertía.
 
 - Una mutación es una carpeta backend/tests/database/mutations/<nombre>/ con una sola migración 9999_12_31_*.php, que corre después de todas las reales. Los traits la cargan con --path cuando MUTATION=<nombre>; aplicarla antes de la suite no sirve, porque migrate:fresh la borra.
-- Cabecera: una línea `// kills: <id del gate>` por cada test que debe fallar con ella, todos. Solo tests de archivos con RefreshDatabaseAsOwner o DatabaseTruncationAsOwner, sin dataset salvo que el id lleve su sufijo. `// control: survives` marca un control: sus tests deben pasar.
-- MutationAppliedTest prueba que la mutación se aplicó, así un SQL roto no cuenta como muerte. El runner restaura pyme_test al final.
+- Cabecera: una línea `// kills: <id del gate>` por test, en la columna 0; una línea con `kills:` mal formada es error. Todos los listados deben fallar; la lista no tiene que ser exhaustiva, pero incluye al menos un test que observe la mutación de forma específica, no por un error colateral. Un `<error>` del killer cuenta como muerte, igual que un `<failure>`. Solo tests de archivos con RefreshDatabaseAsOwner o DatabaseTruncationAsOwner, sin dataset salvo que el id lleve su sufijo. `// control: survives` marca un control: sus tests deben pasar.
+- MutationAppliedTest prueba que la mutación se aplicó, así un SQL roto no cuenta como muerte.
+- Al final el runner restaura pyme_test sin MUTATION y exige en verde todos los killers listados. Un rojo ahí es un killer flaky o una mutación que dejó un objeto que migrate:fresh no borra. La restauración corre también tras un Ctrl-C o una excepción, como otro docker compose run. Un Ctrl-C durante una restauración la corta, también la final del camino normal, y nada la repite: pyme_test puede quedar con la última mutación hasta el próximo migrate:fresh.
+- Una mutación solo toca objetos que migrate:fresh o su migración real recrean: tablas, o funciones que su migración crea con DROP ... IF EXISTS.
 - Fuera del runner: lo que exige superusuario (GRANT ON PARAMETER, ALTER ROLE de otro rol, ALTER DATABASE), porque las migraciones corren como pyme_owner. Se ve en rojo a mano y queda en estado.md.
 - Un test de invariante de base de datos nuevo trae su mutación en el mismo paso. Las mutaciones son tests: protegidas por el gate y prohibidas al coder.
 
