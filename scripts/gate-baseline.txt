@@ -119,6 +119,12 @@ backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait w
 backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait when it marks the parent postable while A creates a child without commit, and rejects it after A commits (SQLSTATE 23514)
 backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait when it moves Y under X while A moves X under Y without commit, and rejects the cycle after A commits (SQLSTATE 23514)
 backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait when it moves Z under W while A moves Y under X without commit, and rejects the cycle of depth 2 after A commits (SQLSTATE 23514)
+backend/tests/Integration/AccountLocksTest.php::it accepts repeated ids
+backend/tests/Integration/AccountLocksTest.php::it rejects account ids that are not int (InvalidArgumentException) before querying with data set "dataset "float""
+backend/tests/Integration/AccountLocksTest.php::it rejects account ids that are not int (InvalidArgumentException) before querying with data set "dataset "null""
+backend/tests/Integration/AccountLocksTest.php::it rejects account ids that are not int (InvalidArgumentException) before querying with data set "dataset "string""
+backend/tests/Integration/AccountLocksTest.php::it throws AccountNotFound for a missing id and for an account of another company with data set "('account of another company')"
+backend/tests/Integration/AccountLocksTest.php::it throws AccountNotFound for a missing id and for an account of another company with data set "('missing id')"
 backend/tests/Integration/AccountModelTest.php::it casts every boolean attribute to a strict bool in memory (without a cast the integers would stay as they are)
 backend/tests/Integration/AccountModelTest.php::it casts normal_balance to NormalBalance when read back from the database
 backend/tests/Integration/AccountModelTest.php::it does not take company_id from mass assignment: the row ends up in the company of the context
@@ -531,6 +537,17 @@ backend/tests/Integration/PeriodTest.php::it rejects a status other than open or
 backend/tests/Integration/PeriodTest.php::it stores the active company in company_id when the insert does not pass it
 backend/tests/Integration/PostgresConnectionTest.php::it does not use persistent PDO connections
 backend/tests/Integration/PostgresConnectionTest.php::it runs against Postgres on the test database, never the development one
+backend/tests/Integration/PostingLockConcurrencyTest.php::it fails with PostingLockTimeout after about 5s when another transaction holds the document counter, without hanging
+backend/tests/Integration/PostingLockConcurrencyTest.php::it locks accounts in ascending id order whatever the input order
+backend/tests/Integration/PostingLockConcurrencyTest.php::it makes a key-preserving UPDATE of a locked account wait (FOR SHARE, not FOR KEY SHARE)
+backend/tests/Integration/PostingLockConcurrencyTest.php::it sees the shared lock of lockForPosting (control of the probe in the ascending order test)
+backend/tests/Integration/PostingLockConcurrencyTest.php::it throws LogicException from AccountLocks outside a transaction
+backend/tests/Integration/PostingTransactionTest.php::it lets other SQLSTATEs through unchanged with data set "dataset "23514 check violation""
+backend/tests/Integration/PostingTransactionTest.php::it lets other SQLSTATEs through unchanged with data set "dataset "40P01 deadlock""
+backend/tests/Integration/PostingTransactionTest.php::it maps SQLSTATE 55P03 to PostingLockTimeout keeping the original exception as previous
+backend/tests/Integration/PostingTransactionTest.php::it refuses to run nested inside an open transaction without running the work
+backend/tests/Integration/PostingTransactionTest.php::it returns the result of the work and rolls back its writes when the work throws
+backend/tests/Integration/PostingTransactionTest.php::it sets a local lock_timeout of 5s as the first statement of its transaction
 backend/tests/Integration/TenantIsolationTest.php::it deletes nothing of another company and its rows survive
 backend/tests/Integration/TenantIsolationTest.php::it every public table with a company_id column also has it NOT NULL with a DEFAULT read from the context, except the global tables
 backend/tests/Integration/TenantIsolationTest.php::it every public table with a company_id column has RLS enabled, forced and at least one policy, except the global tables
@@ -613,6 +630,7 @@ backend/tests/Unit/DomainErrorTest.php::it has exactly the kinds Invalid, NotFou
 backend/tests/Unit/DomainErrorTest.php::it is an abstract RuntimeException
 backend/tests/Unit/DomainErrorTest.php::it keeps the internal message, exposes the code and the kind, and has an empty context by default
 backend/tests/Unit/DomainErrorTest.php::it lets a concrete error provide its context for the logs
+backend/tests/Unit/PostingLockTimeoutTest.php::it is a Conflict with code posting_lock_timeout and keeps the previous exception
 backend/tests/Unit/RedactSensitiveDataTest.php::it does not touch values that are objects, such as the exception of a log record
 backend/tests/Unit/RedactSensitiveDataTest.php::it does nothing to a record with empty context and extra
 backend/tests/Unit/RedactSensitiveDataTest.php::it ignores the case of the key with data set "('Api_Key')"
