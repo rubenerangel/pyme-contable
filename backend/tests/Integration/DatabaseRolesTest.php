@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 // Catalogs only: no RefreshDatabase. Runs on the default connection (pyme_app, database pyme_test).
@@ -153,3 +154,97 @@ it('neither pyme_app nor pyme_owner can connect to the postgres database, but bo
         'Expected CONNECT: neither role on postgres (revoked from PUBLIC), both on pyme and pyme_test.',
     );
 });
+
+it('pg_db_role_setting has no default for pyme_app and no app.* default for any role or database', function (): void {
+    // A per-role or per-database default for app.company_id would make a connection that never called enter()
+    // stop failing closed (it would silently see a company). Any default set for pyme_app survives migrate:fresh,
+    // because it lives in the cluster catalog and not in the schema. setrole = 0 means all roles and
+    // setdatabase = 0 means all databases. The legitimate {TimeZone=UTC} rows (setrole = 0) must not match.
+    $rows = DB::select(<<<'SQL'
+        select case when s.setrole = 0 then '(all roles)'
+                    else coalesce(r.rolname, s.setrole::text) end         as role_name,
+               case when s.setdatabase = 0 then '(all databases)'
+                    else coalesce(d.datname, s.setdatabase::text) end     as database_name,
+               s.setconfig::text                                          as setconfig
+        from pg_db_role_setting s
+        left join pg_roles r    on r.oid = s.setrole
+        left join pg_database d on d.oid = s.setdatabase
+        where r.rolname = 'pyme_app'
+           or exists (select 1 from unnest(s.setconfig) as c(item) where c.item ilike 'app.%')
+        order by role_name, database_name
+        SQL);
+
+    $found = array_map(
+        static fn (object $row): string => "role={$row->role_name} database={$row->database_name} setconfig={$row->setconfig}",
+        $rows,
+    );
+
+    $this->assertSame(
+        [],
+        $found,
+        'pg_db_role_setting has defaults for pyme_app or an app.* default for some role/database: '.implode('; ', $found),
+    );
+});
+
+it('pg_parameter_acl grants nothing on app.* parameters and nothing to PUBLIC or to roles pyme_app belongs to', function (): void {
+    // Any grantee on an app.* parameter (for example pyme_owner) would open ALTER DATABASE ... SET app.company_id.
+    // A privilege (SET or ALTER SYSTEM) for PUBLIC or for a role pyme_app is a member of would let pyme_app change a
+    // server parameter: SET on session_replication_role would allow 'replica' and switch off the ledger triggers
+    // (today journal_entry_enforce_posting). Grantee 0 is PUBLIC, which is not a role anyone can be a member of:
+    // pg_has_role returns false for 0, so PUBLIC needs its own branch. CASE and not OR because the evaluation order
+    // of OR is not guaranteed, and the explicit branch keeps the intent readable.
+    $rows = DB::select(<<<'SQL'
+        select p.parname,
+               p.paracl::text as paracl
+        from pg_parameter_acl p
+        where p.parname ilike 'app.%'
+           or exists (select 1 from aclexplode(p.paracl) a
+                      where case when a.grantee = 0 then true
+                                 else pg_has_role('pyme_app', a.grantee, 'MEMBER') end)
+        order by p.parname
+        SQL);
+
+    $found = array_map(
+        static fn (object $row): string => "parname={$row->parname} paracl={$row->paracl}",
+        $rows,
+    );
+
+    $this->assertSame(
+        [],
+        $found,
+        'pg_parameter_acl has an app.* parameter or a privilege for PUBLIC or for a role pyme_app belongs to: '.implode('; ', $found),
+    );
+});
+
+it('pyme_app cannot set an app.company_id default for itself', function (bool $scopedToDatabase): void {
+    // The catalog tests above detect a default that is already set; this one proves pyme_app cannot set it. An ordinary
+    // role can set its own defaults for userset parameters (ALTER ROLE docs, PG17); app.* is rejected because it is a
+    // placeholder with no SET privilege. Each attempt runs in its own transaction and is always rolled back: ALTER ROLE
+    // is transactional, so if it ever succeeds the default must not stay in the cluster.
+    $database = '"'.str_replace('"', '""', DB::connection()->getDatabaseName()).'"';
+
+    $sql = $scopedToDatabase
+        ? "ALTER ROLE CURRENT_USER IN DATABASE {$database} SET app.company_id = '1'"
+        : "ALTER ROLE CURRENT_USER SET app.company_id = '1'";
+
+    $error = null;
+
+    DB::beginTransaction();
+    try {
+        DB::statement($sql);
+    } catch (QueryException $e) {
+        $error = $e;
+    } finally {
+        DB::rollBack();
+    }
+
+    $this->assertNotNull($error, "pyme_app was able to run: {$sql}");
+    $this->assertSame(
+        '42501',
+        $error->errorInfo[0] ?? null,
+        "Expected SQLSTATE 42501 (insufficient_privilege) for: {$sql}. Got: {$error->getMessage()}",
+    );
+})->with([
+    'role-wide default' => [false],
+    'database-scoped default' => [true],
+]);
