@@ -11,6 +11,7 @@ use Tests\RefreshDatabaseAsOwner;
 use Tests\Support\AccountFixtures;
 use Tests\Support\LedgerFixtures;
 use Tests\Support\MasterDataFixtures;
+use Tests\Support\SqlAssertions;
 use Tests\Support\TenantCatalog;
 
 // The application runs as pyme_app (default connection) and migrations run as pyme_owner
@@ -358,6 +359,28 @@ it('pyme_app has no privileges on the municipality sequence', function (): void 
         ['USAGE' => false, 'SELECT' => false, 'UPDATE' => false],
         ['USAGE' => (bool) $row->can_use, 'SELECT' => (bool) $row->can_select, 'UPDATE' => (bool) $row->can_update],
         'Privilege → whether pyme_app has it on municipality_id_seq (only the owner writes the catalog).',
+    );
+});
+
+// The balance trigger of journal_entry_line validates an entry only when the inserted line has the greatest id of its
+// entry. That rule holds while ids only grow: setval would let a caller move the sequence back and hand out a smaller id
+// after a greater one, so pyme_app has USAGE (nextval) and nothing else on the sequence.
+it('does not let pyme_app move journal_entry_line_id_seq backwards (only USAGE, no UPDATE: setval gives SQLSTATE 42501)', function (): void {
+    $row = DB::selectOne(<<<'SQL'
+        select has_sequence_privilege('pyme_app', 'public.journal_entry_line_id_seq', 'USAGE') as can_use,
+               has_sequence_privilege('pyme_app', 'public.journal_entry_line_id_seq', 'UPDATE') as can_update
+        SQL);
+
+    $this->assertSame(
+        ['USAGE' => true, 'UPDATE' => false],
+        ['USAGE' => (bool) $row->can_use, 'UPDATE' => (bool) $row->can_update],
+        'Privilege → whether pyme_app has it on journal_entry_line_id_seq (USAGE yes, UPDATE no).',
+    );
+
+    SqlAssertions::expectRejected(
+        fn () => DB::select("select setval('journal_entry_line_id_seq', 1)"),
+        '42501',
+        message: 'permission denied for sequence',
     );
 });
 

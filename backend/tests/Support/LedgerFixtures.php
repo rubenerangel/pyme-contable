@@ -19,7 +19,9 @@ final class LedgerFixtures
      * Enters a new company and builds, in it: the period 2026/1, the document type 'TST' (restarts each year), a draft
      * document dated 2026-01-15, its journal entry number 1 and two postable accounts ('T1' and 'T2'). With
      * $withDimensions it also builds a third party, a cost center and a construction project, and picks an existing
-     * municipality. The entry has no lines, and the lines a test adds need not balance: balancing is not enforced yet.
+     * municipality. The entry has no lines. Balancing is checked at COMMIT or by SET CONSTRAINTS ALL IMMEDIATE, and
+     * tests with RefreshDatabase never reach the COMMIT, so the lines a test adds need not balance unless the test runs
+     * SET CONSTRAINTS ALL IMMEDIATE (as its last statement, never before inserting the lines).
      *
      * @return array{company: int, period: int, type: int, document: int, entry: int, account: int, otherAccount: int, thirdParty: ?int, costCenter: ?int, constructionProject: ?int, municipality: ?int}
      */
