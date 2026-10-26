@@ -1,0 +1,630 @@
+backend/tests/Feature/ActiveCompanyTest.php::it activates a company the user is a member of: 204 and the session stores it
+backend/tests/Feature/ActiveCompanyTest.php::it answers 401 (not 500) to a bearer token without session, since there are no personal access tokens with data set "dataset "id|secret token from the SPA""
+backend/tests/Feature/ActiveCompanyTest.php::it answers 401 (not 500) to a bearer token without session, since there are no personal access tokens with data set "dataset "id|secret token without SPA headers""
+backend/tests/Feature/ActiveCompanyTest.php::it answers 401 (not 500) to a bearer token without session, since there are no personal access tokens with data set "dataset "malformed token from the SPA""
+backend/tests/Feature/ActiveCompanyTest.php::it answers 401 (not 500) to a bearer token without session, since there are no personal access tokens with data set "dataset "malformed token without SPA headers""
+backend/tests/Feature/ActiveCompanyTest.php::it answers a nonexistent company exactly like a company the user is not a member of (existence is not revealed)
+backend/tests/Feature/ActiveCompanyTest.php::it keeps the previous active company when activating a company the user is not a member of
+backend/tests/Feature/ActiveCompanyTest.php::it rejects a company the user is not a member of with 403 and leaves the session without company
+backend/tests/Feature/ActiveCompanyTest.php::it rejects a nonexistent company with 403 and leaves the session unchanged
+backend/tests/Feature/ActiveCompanyTest.php::it rejects an invalid payload with 422 and does not touch the session with data set "dataset "decimal""
+backend/tests/Feature/ActiveCompanyTest.php::it rejects an invalid payload with 422 and does not touch the session with data set "dataset "missing""
+backend/tests/Feature/ActiveCompanyTest.php::it rejects an invalid payload with 422 and does not touch the session with data set "dataset "negative""
+backend/tests/Feature/ActiveCompanyTest.php::it rejects an invalid payload with 422 and does not touch the session with data set "dataset "not numeric""
+backend/tests/Feature/ActiveCompanyTest.php::it rejects an invalid payload with 422 and does not touch the session with data set "dataset "null""
+backend/tests/Feature/ActiveCompanyTest.php::it rejects an invalid payload with 422 and does not touch the session with data set "dataset "zero""
+backend/tests/Feature/ActiveCompanyTest.php::it rejects an unauthenticated request with 401
+backend/tests/Feature/ActiveCompanyTest.php::it replaces the active company when the user activates another one they belong to
+backend/tests/Feature/CompanyContextTest.php::it answers 403 and forgets the active company when the membership was removed after activating it
+backend/tests/Feature/CompanyContextTest.php::it answers 409 when the session has no active company, and enters no context
+backend/tests/Feature/CompanyContextTest.php::it does not leak the previous request context into the next one after a failure
+backend/tests/Feature/CompanyContextTest.php::it does not leak the user of one request into the next one when another user makes it
+backend/tests/Feature/CompanyContextTest.php::it does not let a user activate a company they are not a member of, and keeps showing only their own
+backend/tests/Feature/CompanyContextTest.php::it leaves no company in the database context after any request
+backend/tests/Feature/CompanyContextTest.php::it leaves no user in the database context after any request
+backend/tests/Feature/CompanyContextTest.php::it leaves the context cleared even if the route throws after entering it
+backend/tests/Feature/CompanyContextTest.php::it leaves the context cleared when the exception crosses the middleware (finally, not just a rendered 500)
+backend/tests/Feature/CompanyContextTest.php::it leaves the user cleared even if the route throws after entering the context
+backend/tests/Feature/CompanyContextTest.php::it leaves the user cleared when the exception crosses the middleware (finally, not just a rendered 500)
+backend/tests/Feature/CompanyContextTest.php::it rejects an unauthenticated request with 401 and enters no context
+backend/tests/Feature/CompanyContextTest.php::it rejects an unauthenticated request with 401 and enters no user
+backend/tests/Feature/CompanyContextTest.php::it sets the authenticated user in the connection context inside a business request, next to the active company
+backend/tests/Feature/CompanyContextTest.php::it shows only the rows of the active company and switches to the other one after activating it
+backend/tests/Feature/CompanyContextTest.php::it then answers 409 on the next request after the membership was removed (the stale company is gone)
+backend/tests/Feature/CorsTest.php::it adds no CORS header to /sanctum/csrf-cookie for a foreign origin
+backend/tests/Feature/CorsTest.php::it adds no CORS header to an API error for a route that does not exist
+backend/tests/Feature/CorsTest.php::it adds no CORS header to an API response for a foreign origin
+backend/tests/Feature/CorsTest.php::it does not answer a preflight with CORS permissions with data set "dataset "active company""
+backend/tests/Feature/CorsTest.php::it does not answer a preflight with CORS permissions with data set "dataset "csrf cookie""
+backend/tests/Feature/CorsTest.php::it keeps config cors.paths empty: adding a path opens CORS
+backend/tests/Feature/ErrorLeakTest.php::it answers Problem Details even when the client does not ask for JSON with data set "dataset "exception""
+backend/tests/Feature/ErrorLeakTest.php::it answers Problem Details even when the client does not ask for JSON with data set "dataset "missing route outside the API prefix""
+backend/tests/Feature/ErrorLeakTest.php::it answers Problem Details even when the client does not ask for JSON with data set "dataset "missing route""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "DomainError" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "DomainError" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "QueryException (nonexistent table)" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "QueryException (nonexistent table)" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "ValidationException" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "ValidationException" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "findOrFail of a nonexistent id" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "findOrFail of a nonexistent id" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "method not allowed" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "method not allowed" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "route that does not exist" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "route that does not exist" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "unauthenticated" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "unauthenticated" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "unexpected RuntimeException" / dataset "debug off""
+backend/tests/Feature/ErrorLeakTest.php::it answers every kind of failure as safe Problem Details, with debug on and off with data set "dataset "unexpected RuntimeException" / dataset "debug on""
+backend/tests/Feature/ErrorLeakTest.php::it keeps the field map of a validation failure so assertJsonValidationErrors still works
+backend/tests/Feature/ErrorLeakTest.php::it lists the allowed methods in the Allow header of a 405
+backend/tests/Feature/ErrorLeakTest.php::it writes validation messages in Spanish, not in English and not as raw keys
+backend/tests/Feature/LogsTest.php::it does not carry the company of one request into the log of the next request of another user
+backend/tests/Feature/LogsTest.php::it does not give a later job without context the request_id, company or user of the earlier one
+backend/tests/Feature/LogsTest.php::it does not log a no-active-company conflict: it is an expected business rejection
+backend/tests/Feature/LogsTest.php::it does not write the value of a sensitive key into the message through a placeholder
+backend/tests/Feature/LogsTest.php::it logs a 500 as an error with the class and the trace of the exception, and no argument of the trace
+backend/tests/Feature/LogsTest.php::it logs a company access denial as a warning with its code and the ids of the error context
+backend/tests/Feature/LogsTest.php::it logs a job dispatched inside a request with the request_id, company_id, user_id, job and job_id
+backend/tests/Feature/LogsTest.php::it logs a violated UNIQUE on a table without RLS with no DETAIL line and no value
+backend/tests/Feature/LogsTest.php::it logs a violated UNIQUE with its SQLSTATE and the SQL with placeholders, and never the values
+backend/tests/Feature/LogsTest.php::it logs the loss of access to the active company as a warning with its code
+backend/tests/Feature/LogsTest.php::it puts company_id and user_id in extra inside a company request, and not in a log written after it
+backend/tests/Feature/LogsTest.php::it puts the request_id of the request in extra, the same one the response carries
+backend/tests/Feature/LogsTest.php::it redacts a sensitive key that comes from Context, not only from the log context
+backend/tests/Feature/LogsTest.php::it redacts the sensitive keys of a nested log context and keeps the rest
+backend/tests/Feature/LogsTest.php::it reports the exception of a failing company request with its company_id and user_id, and clears them afterwards
+backend/tests/Feature/LogsTest.php::it uses the incoming X-Request-Id when it is valid
+backend/tests/Feature/LogsTest.php::it writes one valid JSON line per record with message, level and a UTC datetime
+backend/tests/Feature/ProblemDetailsMappingTest.php::it keeps the headers of the HTTP exception
+backend/tests/Feature/ProblemDetailsMappingTest.php::it leaves a response built on purpose by an HttpResponseException untouched
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(400, 'bad_request')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(401, 'unauthenticated')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(403, 'forbidden')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(404, 'not_found')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(405, 'method_not_allowed')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(419, 'csrf_token_mismatch')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(429, 'too_many_requests')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "(503, 'service_unavailable')"
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "dataset "other 4xx: 409""
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "dataset "other 4xx: 418""
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "dataset "other 4xx: 422 raised as HTTP exception""
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "dataset "other 5xx: 500""
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps an HTTP exception to its status and generic code, never using its message with data set "dataset "other 5xx: 502 (title falls to default)""
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps every ErrorKind to its status with the code of the error and the safe detail
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps the exceptions Laravel converts to HTTP exceptions with data set "dataset "AuthenticationException""
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps the exceptions Laravel converts to HTTP exceptions with data set "dataset "AuthorizationException""
+backend/tests/Feature/ProblemDetailsMappingTest.php::it maps the exceptions Laravel converts to HTTP exceptions with data set "dataset "TokenMismatchException""
+backend/tests/Feature/RequestIdTest.php::it does not let a header injection through to the response
+backend/tests/Feature/RequestIdTest.php::it generates a different request_id for each request
+backend/tests/Feature/RequestIdTest.php::it generates a request_id when the header is missing
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "empty""
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "line injection""
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "not hex""
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "too long""
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "too short""
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "trailing newline (a plain $ would accept it)""
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "uppercase""
+backend/tests/Feature/RequestIdTest.php::it replaces an invalid incoming X-Request-Id with a generated one with data set "dataset "uuid with dashes""
+backend/tests/Feature/RequestIdTest.php::it respects a valid incoming X-Request-Id and shares it with Context, the header and the error body
+backend/tests/Feature/RequestIdTest.php::it returns X-Request-Id also on a route that does not exist
+backend/tests/Feature/RequestIdTest.php::it returns X-Request-Id on success, not only on errors
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it keeps B waiting while A marks the parent postable and lets the child through when A rolls back
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it keeps B waiting while A marks the parent postable and rejects the child when A commits (SQLSTATE 23514)
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it lets B create the child when A rolls back the marking of the parent as postable
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it lets B mark the parent postable when A rolls back the creation of the child
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it lets B move Y under X when A rolls back the move of X under Y
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it lets B move Z under W when A rolls back the move of Y under X
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait when it creates a child while A marks the parent postable without commit, and rejects it after A commits (SQLSTATE 23514)
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait when it marks the parent postable while A creates a child without commit, and rejects it after A commits (SQLSTATE 23514)
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait when it moves Y under X while A moves X under Y without commit, and rejects the cycle after A commits (SQLSTATE 23514)
+backend/tests/Integration/AccountHierarchyConcurrencyTest.php::it makes B wait when it moves Z under W while A moves Y under X without commit, and rejects the cycle of depth 2 after A commits (SQLSTATE 23514)
+backend/tests/Integration/AccountModelTest.php::it casts every boolean attribute to a strict bool in memory (without a cast the integers would stay as they are)
+backend/tests/Integration/AccountModelTest.php::it casts normal_balance to NormalBalance when read back from the database
+backend/tests/Integration/AccountModelTest.php::it does not take company_id from mass assignment: the row ends up in the company of the context
+backend/tests/Integration/AccountModelTest.php::it filters by company on its own with RLS turned off, and shows none without context (the scope fails closed on its own)
+backend/tests/Integration/AccountModelTest.php::it qualifies the company column with the table, so a self join is not ambiguous
+backend/tests/Integration/AccountModelTest.php::it rejects assigning company_id directly and saving (no UPDATE privilege on the column, SQLSTATE 42501)
+backend/tests/Integration/AccountModelTest.php::it rejects forceCreate with company_id even if it is the own company (no INSERT privilege on the column, SQLSTATE 42501)
+backend/tests/Integration/AccountModelTest.php::it shows only the accounts of the company in the context, and none without context
+backend/tests/Integration/AccountTest.php::it accepts both normal_balance values
+backend/tests/Integration/AccountTest.php::it accepts the same code in another company, and each company sees only its own accounts
+backend/tests/Integration/AccountTest.php::it accepts the same multi-row INSERT with the child first when the parent is not postable, and the predicted ids hold
+backend/tests/Integration/AccountTest.php::it deletes an account that has no children
+backend/tests/Integration/AccountTest.php::it does not let pyme_app update company_id or id (no UPDATE privilege on the column, SQLSTATE 42501) with data set "dataset "company_id""
+backend/tests/Integration/AccountTest.php::it does not let pyme_app update company_id or id (no UPDATE privilege on the column, SQLSTATE 42501) with data set "dataset "id""
+backend/tests/Integration/AccountTest.php::it inserts a root account and a child with the company of the context, and applies the defaults
+backend/tests/Integration/AccountTest.php::it marks postable an account that has no children
+backend/tests/Integration/AccountTest.php::it moves a descendant up under an ancestor, which is not a cycle
+backend/tests/Integration/AccountTest.php::it moves an account under a non-postable parent of its own company, with an account of another company present
+backend/tests/Integration/AccountTest.php::it moves an existing account under a non-postable account
+backend/tests/Integration/AccountTest.php::it records the DELETE of an account in audit_log with its old values
+backend/tests/Integration/AccountTest.php::it records the INSERT of an account in audit_log with its new values
+backend/tests/Integration/AccountTest.php::it records the UPDATE of an account in audit_log with the old and the new name
+backend/tests/Integration/AccountTest.php::it rejects a multi-row INSERT with the child first and its postable parent second (SQLSTATE 23514)
+backend/tests/Integration/AccountTest.php::it rejects a multi-row INSERT with the postable parent first and its child second (SQLSTATE 23514)
+backend/tests/Integration/AccountTest.php::it rejects a parent that belongs to another company (composite FK, SQLSTATE 23503)
+backend/tests/Integration/AccountTest.php::it rejects a parent that does not exist (composite FK, SQLSTATE 23503)
+backend/tests/Integration/AccountTest.php::it rejects a second account with the same code in the company (UNIQUE, SQLSTATE 23505)
+backend/tests/Integration/AccountTest.php::it rejects an account that is its own parent (SQLSTATE 23514)
+backend/tests/Integration/AccountTest.php::it rejects an insert that omits is_postable or normal_balance (NOT NULL, no default, SQLSTATE 23502) with data set "dataset "is_postable""
+backend/tests/Integration/AccountTest.php::it rejects an insert that omits is_postable or normal_balance (NOT NULL, no default, SQLSTATE 23502) with data set "dataset "normal_balance""
+backend/tests/Integration/AccountTest.php::it rejects creating a child under a postable account (SQLSTATE 23514)
+backend/tests/Integration/AccountTest.php::it rejects deleting an account that has children (FK without cascade, SQLSTATE 23503)
+backend/tests/Integration/AccountTest.php::it rejects invalid code, name or normal_balance with a CHECK constraint (SQLSTATE 23514) with data set "dataset "blank name""
+backend/tests/Integration/AccountTest.php::it rejects invalid code, name or normal_balance with a CHECK constraint (SQLSTATE 23514) with data set "dataset "code with a leading space""
+backend/tests/Integration/AccountTest.php::it rejects invalid code, name or normal_balance with a CHECK constraint (SQLSTATE 23514) with data set "dataset "code with a trailing space""
+backend/tests/Integration/AccountTest.php::it rejects invalid code, name or normal_balance with a CHECK constraint (SQLSTATE 23514) with data set "dataset "empty code""
+backend/tests/Integration/AccountTest.php::it rejects invalid code, name or normal_balance with a CHECK constraint (SQLSTATE 23514) with data set "dataset "empty name""
+backend/tests/Integration/AccountTest.php::it rejects invalid code, name or normal_balance with a CHECK constraint (SQLSTATE 23514) with data set "dataset "normal_balance with a capital""
+backend/tests/Integration/AccountTest.php::it rejects invalid code, name or normal_balance with a CHECK constraint (SQLSTATE 23514) with data set "dataset "unknown normal_balance""
+backend/tests/Integration/AccountTest.php::it rejects marking postable an account that has children (SQLSTATE 23514)
+backend/tests/Integration/AccountTest.php::it rejects moving an account under a parent that belongs to another company (composite FK, SQLSTATE 23503)
+backend/tests/Integration/AccountTest.php::it rejects moving an ancestor under its own descendant (SQLSTATE 23514) with data set "dataset "under its child""
+backend/tests/Integration/AccountTest.php::it rejects moving an ancestor under its own descendant (SQLSTATE 23514) with data set "dataset "under its grandchild""
+backend/tests/Integration/AccountTest.php::it rejects moving an existing account under a postable account (SQLSTATE 23514)
+backend/tests/Integration/AppPermissionsTest.php::it a new table created by pyme_owner starts with no privileges for pyme_app
+backend/tests/Integration/AppPermissionsTest.php::it all tables in the public schema belong to pyme_owner
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "account""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "construction_project""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "cost_center""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "document""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "document_counter""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "document_type""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "journal_entry""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "journal_entry_line""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "period""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit company_id, not even its own (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "third_party""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "account""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "construction_project""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "cost_center""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "document""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "document_counter""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "document_type""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "journal_entry""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "journal_entry_line""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "period""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "third_party""
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into construction_project without an id and gets one (USAGE on construction_project_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into cost_center without an id and gets one (USAGE on cost_center_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into document without an id and gets one (USAGE on document_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into document_counter without an id and gets one (USAGE on document_counter_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into document_type without an id and gets one (USAGE on document_type_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into jobs without an id and gets one (USAGE on jobs_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into journal_entry without an id and gets one (USAGE on journal_entry_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into journal_entry_line without an id and gets one (USAGE on journal_entry_line_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into period without an id and gets one (USAGE on period_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into third_party without an id and gets one (USAGE on third_party_id_seq)
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app cannot insert id or company_id on any public table with a company_id column, except the declared ones
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has exactly the expected INSERT columns on every public table without table-level INSERT
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has exactly the expected UPDATE columns on every public table without table-level UPDATE
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has exactly the expected privileges on every public table except migrations
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no TRUNCATE, REFERENCES, TRIGGER or MAINTAIN on any public table
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no UPDATE (table or any column) and no DELETE on the ledger tables journal_entry and journal_entry_line, nor on audit_log
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no privileges on migrations
+backend/tests/Integration/AppPermissionsTest.php::it pyme_app has no privileges on the municipality sequence
+backend/tests/Integration/AppPermissionsTest.php::it the default connection is pyme_app and pgsql_owner is pyme_owner, both on pyme_test
+backend/tests/Integration/AppPermissionsTest.php::it there are no default privileges (pg_default_acl is empty)
+backend/tests/Integration/AuditCatalogTest.php::it audit_log has only the policies for pyme_app to read and pyme_owner to insert, plus optionally owner_select, and none for UPDATE or DELETE
+backend/tests/Integration/AuditCatalogTest.php::it audit_log has the indexes by (company_id, table_name, record_id) and (company_id, occurred_at)
+backend/tests/Integration/AuditCatalogTest.php::it every function and procedure owned by pyme_owner or in public, SECURITY DEFINER or not, pins the exact search_path pg_catalog, public, pg_temp
+backend/tests/Integration/AuditCatalogTest.php::it no SECURITY DEFINER function or procedure owned by pyme_owner or in public has EXECUTE for PUBLIC
+backend/tests/Integration/AuditCatalogTest.php::it pyme_app can execute audit_log_event but not audit_log_capture
+backend/tests/Integration/AuditCatalogTest.php::it pyme_app has no privileges on the audit_log sequence
+backend/tests/Integration/AuditCatalogTest.php::it the audit functions are plpgsql, SECURITY DEFINER and owned by pyme_owner, with the expected return types
+backend/tests/Integration/AuditLogOwnerTest.php::it does not let pyme_owner update or delete audit rows without the context either with data set "dataset "delete""
+backend/tests/Integration/AuditLogOwnerTest.php::it does not let pyme_owner update or delete audit rows without the context either with data set "dataset "update""
+backend/tests/Integration/AuditLogOwnerTest.php::it does not let pyme_owner update or delete audit rows, even with the context set: 0 rows affected and the row stays the same with data set "dataset "delete""
+backend/tests/Integration/AuditLogOwnerTest.php::it does not let pyme_owner update or delete audit rows, even with the context set: 0 rows affected and the row stays the same with data set "dataset "update""
+backend/tests/Integration/AuditLogTest.php::it accepts the valid shapes of an audit row inserted by pyme_owner with data set "dataset "data_change DELETE""
+backend/tests/Integration/AuditLogTest.php::it accepts the valid shapes of an audit row inserted by pyme_owner with data set "dataset "data_change INSERT""
+backend/tests/Integration/AuditLogTest.php::it accepts the valid shapes of an audit row inserted by pyme_owner with data set "dataset "data_change UPDATE""
+backend/tests/Integration/AuditLogTest.php::it accepts the valid shapes of an audit row inserted by pyme_owner with data set "dataset "event""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event accepts event types in lower snake case with data set "dataset "letters""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event accepts event types in lower snake case with data set "dataset "with underscore and digits""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event fails without a user in the context (SQLSTATE 42501, names app.user_id) with data set "dataset "empty user setting""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event fails without a user in the context (SQLSTATE 42501, names app.user_id) with data set "dataset "user setting never defined""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects NULL details (CHECK, SQLSTATE 23514)
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects an event type with an invalid format (CHECK, SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects an event type with an invalid format (CHECK, SQLSTATE 23514) with data set "dataset "hyphen""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects an event type with an invalid format (CHECK, SQLSTATE 23514) with data set "dataset "starts with a digit""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects an event type with an invalid format (CHECK, SQLSTATE 23514) with data set "dataset "uppercase and space""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects details that are not a JSON object (CHECK, SQLSTATE 23514) with data set "dataset "array""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects details that are not a JSON object (CHECK, SQLSTATE 23514) with data set "dataset "number""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event rejects details that are not a JSON object (CHECK, SQLSTATE 23514) with data set "dataset "string""
+backend/tests/Integration/AuditLogTest.php::it audit_log_event returns the id of the event row it writes
+backend/tests/Integration/AuditLogTest.php::it does not let pyme_app delete from audit_log (SQLSTATE 42501, permission denied)
+backend/tests/Integration/AuditLogTest.php::it does not let pyme_app insert directly into audit_log (SQLSTATE 42501, permission denied)
+backend/tests/Integration/AuditLogTest.php::it does not let pyme_app update audit_log (SQLSTATE 42501, permission denied)
+backend/tests/Integration/AuditLogTest.php::it leaves no row in audit_probe nor in audit_log when the INSERT without a user fails with data set "dataset "empty user setting""
+backend/tests/Integration/AuditLogTest.php::it leaves no row in audit_probe nor in audit_log when the INSERT without a user fails with data set "dataset "user setting never defined""
+backend/tests/Integration/AuditLogTest.php::it records a DELETE with the old values and no new values
+backend/tests/Integration/AuditLogTest.php::it records an INSERT in audit_probe as a data_change row with the new values and the context
+backend/tests/Integration/AuditLogTest.php::it records an UPDATE that changes the label with the old and the new values
+backend/tests/Integration/AuditLogTest.php::it records nothing for an UPDATE of a document_type that keeps the same name
+backend/tests/Integration/AuditLogTest.php::it records nothing for an UPDATE that does not change any value
+backend/tests/Integration/AuditLogTest.php::it records the INSERT of a document_type with its new values
+backend/tests/Integration/AuditLogTest.php::it records the UPDATE of the name of a document_type with the old and the new name
+backend/tests/Integration/AuditLogTest.php::it records the UPDATE of the status of a period with the old and the new status
+backend/tests/Integration/AuditLogTest.php::it rejects a write to a real audited table without a user in the context (SQLSTATE 42501, names app.user_id)
+backend/tests/Integration/AuditLogTest.php::it rejects an INSERT in an audited table without a user in the context (SQLSTATE 42501, names app.user_id) with data set "dataset "empty user setting""
+backend/tests/Integration/AuditLogTest.php::it rejects an INSERT in an audited table without a user in the context (SQLSTATE 42501, names app.user_id) with data set "dataset "user setting never defined""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "DELETE with new_values""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "DELETE without old_values""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "INSERT with old_values""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "INSERT without new_values""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "UPDATE without new_values""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "UPDATE without old_values""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "data_change with details""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "data_change with event_type""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "data_change without operation""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "data_change without record_id""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "data_change without table_name""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "event with an invalid event_type""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "event with details that are an array""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "event with old_values""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "event with record_id""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "event with table_name""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "event without details""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "event without event_type""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "kind outside data_change and event""
+backend/tests/Integration/AuditLogTest.php::it rejects an audit row with an invalid shape (CHECK, SQLSTATE 23514) with data set "dataset "operation outside INSERT, UPDATE and DELETE""
+backend/tests/Integration/AuditLogTest.php::it rolls back an UPDATE or DELETE without a user in the context and keeps the row as it was with data set "dataset "delete""
+backend/tests/Integration/AuditLogTest.php::it rolls back an UPDATE or DELETE without a user in the context and keeps the row as it was with data set "dataset "update""
+backend/tests/Integration/AuditLogTest.php::it rolls the audit row back together with the change it records
+backend/tests/Integration/AuditLogTest.php::it shows each company only its own audit rows
+backend/tests/Integration/AuditLogTest.php::it shows no audit rows when the context is empty (fail closed)
+backend/tests/Integration/AuditLogTest.php::it takes the user of each change from the context at that moment
+backend/tests/Integration/CompanyMembershipTest.php::it a user with memberships in two companies gets both with the right pivot role, and each company lists the user
+backend/tests/Integration/CompanyMembershipTest.php::it accepts the roles admin and accountant
+backend/tests/Integration/CompanyMembershipTest.php::it rejects a duplicate membership for the same company and user (unique violation, SQLSTATE 23505)
+backend/tests/Integration/CompanyMembershipTest.php::it rejects a membership for a nonexistent company (foreign key violation, SQLSTATE 23503)
+backend/tests/Integration/CompanyMembershipTest.php::it rejects a membership for a nonexistent user (foreign key violation, SQLSTATE 23503)
+backend/tests/Integration/CompanyMembershipTest.php::it rejects a role outside admin and accountant (check violation, SQLSTATE 23514)
+backend/tests/Integration/ConstructionProjectTest.php::it accepts another code in the same company
+backend/tests/Integration/ConstructionProjectTest.php::it accepts the same code in another company, and each company sees only its own construction projects
+backend/tests/Integration/ConstructionProjectTest.php::it casts is_active to a strict bool in memory and has no timestamps (without a cast the integers would stay as they are)
+backend/tests/Integration/ConstructionProjectTest.php::it inserts a construction project with the company of the context, and applies the defaults
+backend/tests/Integration/ConstructionProjectTest.php::it keeps is_active as given when it is false
+backend/tests/Integration/ConstructionProjectTest.php::it rejects a second construction project with the same code in the company (UNIQUE, SQLSTATE 23505)
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "code NULL""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "code omitted""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "is_active NULL""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "name NULL""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "name omitted""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "blank code""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "blank name""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "code with a leading space""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "code with a trailing space""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "empty code""
+backend/tests/Integration/ConstructionProjectTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "empty name""
+backend/tests/Integration/ConstructionProjectTest.php::it stores a construction project created through the model in the company of the context
+backend/tests/Integration/CostCenterTest.php::it accepts another code in the same company
+backend/tests/Integration/CostCenterTest.php::it accepts the same code in another company, and each company sees only its own cost centers
+backend/tests/Integration/CostCenterTest.php::it casts is_active to a strict bool in memory and has no timestamps (without a cast the integers would stay as they are)
+backend/tests/Integration/CostCenterTest.php::it inserts a cost center with the company of the context, and applies the defaults
+backend/tests/Integration/CostCenterTest.php::it keeps is_active as given when it is false
+backend/tests/Integration/CostCenterTest.php::it rejects a second cost center with the same code in the company (UNIQUE, SQLSTATE 23505)
+backend/tests/Integration/CostCenterTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "code NULL""
+backend/tests/Integration/CostCenterTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "code omitted""
+backend/tests/Integration/CostCenterTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "is_active NULL""
+backend/tests/Integration/CostCenterTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "name NULL""
+backend/tests/Integration/CostCenterTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "name omitted""
+backend/tests/Integration/CostCenterTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "blank code""
+backend/tests/Integration/CostCenterTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "blank name""
+backend/tests/Integration/CostCenterTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "code with a leading space""
+backend/tests/Integration/CostCenterTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "code with a trailing space""
+backend/tests/Integration/CostCenterTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "empty code""
+backend/tests/Integration/CostCenterTest.php::it rejects an invalid code or name with the CHECK constraint of its column (SQLSTATE 23514) with data set "dataset "empty name""
+backend/tests/Integration/CostCenterTest.php::it stores a cost center created through the model in the company of the context
+backend/tests/Integration/DatabaseCompanyContextTest.php::it currentUser is an int, not a string, and comes from the database setting (a session-level set_config)
+backend/tests/Integration/DatabaseCompanyContextTest.php::it enter sets the company and the user in the database settings and the accessors return them
+backend/tests/Integration/DatabaseCompanyContextTest.php::it entering a second company and user replaces both
+backend/tests/Integration/DatabaseCompanyContextTest.php::it entering the same company with another user replaces only the user
+backend/tests/Integration/DatabaseCompanyContextTest.php::it has no company and no user in context when nothing was entered
+backend/tests/Integration/DatabaseCompanyContextTest.php::it leave clears the company and the user and leaves both settings as an empty string
+backend/tests/Integration/DatabaseRolesTest.php::it neither pyme_app nor pyme_owner can connect to the postgres database, but both can to pyme and pyme_test
+backend/tests/Integration/DatabaseRolesTest.php::it pyme_app can log in but has no administrative privileges
+backend/tests/Integration/DatabaseRolesTest.php::it pyme_app cannot become pyme_owner nor create objects in public
+backend/tests/Integration/DatabaseRolesTest.php::it pyme_app does not own any relation, schema or database
+backend/tests/Integration/DatabaseRolesTest.php::it pyme_app has neither TEMP nor CREATE on the pyme and pyme_test databases
+backend/tests/Integration/DocumentCounterConcurrencyTest.php::it does not make B wait when it asks for another document type or another year than the one A holds
+backend/tests/Integration/DocumentCounterConcurrencyTest.php::it gives B number 1 when A created the counter and rolled back
+backend/tests/Integration/DocumentCounterConcurrencyTest.php::it gives B the same number A took when A rolls back (no gaps)
+backend/tests/Integration/DocumentCounterConcurrencyTest.php::it makes B wait on an existing counter while A holds the next number, and B gets the one after A commits
+backend/tests/Integration/DocumentCounterConcurrencyTest.php::it makes B wait while A creates the counter without commit, and B gets 2 after A commits
+backend/tests/Integration/DocumentCounterConcurrencyTest.php::it next outside a transaction throws LogicException and creates or changes no counter
+backend/tests/Integration/DocumentCounterTest.php::it accepts an update of exactly +1 on the counter
+backend/tests/Integration/DocumentCounterTest.php::it does not let pyme_app delete a document counter (no DELETE privilege, SQLSTATE 42501)
+backend/tests/Integration/DocumentCounterTest.php::it does not let pyme_app delete a document type (no DELETE privilege, SQLSTATE 42501)
+backend/tests/Integration/DocumentCounterTest.php::it does not let pyme_app update resets_yearly of a document type (no UPDATE privilege on the column, SQLSTATE 42501)
+backend/tests/Integration/DocumentCounterTest.php::it does not let pyme_app update the code of a document type (no UPDATE privilege on the column, SQLSTATE 42501)
+backend/tests/Integration/DocumentCounterTest.php::it keeps an independent counter per document type
+backend/tests/Integration/DocumentCounterTest.php::it keeps an independent counter per year
+backend/tests/Integration/DocumentCounterTest.php::it lets pyme_app update the name of a document type
+backend/tests/Integration/DocumentCounterTest.php::it next returns 1, 2, 3 in a row for the same document type and year
+backend/tests/Integration/DocumentCounterTest.php::it rejects a counter that points at a document type of another company (composite FK, SQLSTATE 23503)
+backend/tests/Integration/DocumentCounterTest.php::it rejects a direct insert of a counter with last_number other than 1 (trigger, SQLSTATE 23514)
+backend/tests/Integration/DocumentCounterTest.php::it rejects a document type that omits resets_yearly: the column has no DEFAULT (SQLSTATE 23502)
+backend/tests/Integration/DocumentCounterTest.php::it rejects a document type with a NULL resets_yearly (NOT NULL, SQLSTATE 23502)
+backend/tests/Integration/DocumentCounterTest.php::it rejects a second document type with the same code in the same company (UNIQUE, SQLSTATE 23505)
+backend/tests/Integration/DocumentCounterTest.php::it rejects an update that goes backwards (trigger, SQLSTATE 23514)
+backend/tests/Integration/DocumentCounterTest.php::it rejects an update that leaves the number unchanged (it must be exactly +1, trigger, SQLSTATE 23514)
+backend/tests/Integration/DocumentCounterTest.php::it rejects an update that skips a number (+2, trigger, SQLSTATE 23514)
+backend/tests/Integration/DocumentCounterTest.php::it starts company B at 1 with its own document type while A is at 3, and neither sees the counter of the other
+backend/tests/Integration/DocumentCounterTest.php::it treats a NULL year as one single counter, apart from the counters of a year
+backend/tests/Integration/DocumentTest.php::it accepts a document without description
+backend/tests/Integration/DocumentTest.php::it accepts many documents that reverse nothing, and one reversal for each different original
+backend/tests/Integration/DocumentTest.php::it deletes a draft
+backend/tests/Integration/DocumentTest.php::it does not delete a posted document, the one that has a journal entry (SQLSTATE 23503, journal_entry_document_fkey)
+backend/tests/Integration/DocumentTest.php::it inserts a draft with the company of the context and the reversal link empty
+backend/tests/Integration/DocumentTest.php::it rejects a blank description with document_description_check (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/DocumentTest.php::it rejects a blank description with document_description_check (SQLSTATE 23514) with data set "dataset "spaces""
+backend/tests/Integration/DocumentTest.php::it rejects a document that reverses itself with document_reverses_document_id_check (SQLSTATE 23514)
+backend/tests/Integration/DocumentTest.php::it rejects a document type of another company with document_document_type_fkey (SQLSTATE 23503)
+backend/tests/Integration/DocumentTest.php::it rejects a reversal of a document of another company with document_reverses_document_fkey (SQLSTATE 23503)
+backend/tests/Integration/DocumentTest.php::it rejects a second document that reverses the same original with document_company_id_reverses_document_id_key (SQLSTATE 23505)
+backend/tests/Integration/DocumentTest.php::it updates a draft
+backend/tests/Integration/ErrorCatalogTest.php::it assigns the kind and code specified to the company context errors
+backend/tests/Integration/ErrorCatalogTest.php::it forces Spanish where the environment may not set it: phpunit.xml, .env.example and the config default
+backend/tests/Integration/ErrorCatalogTest.php::it has a Spanish message in errors.codes for every concrete DomainError
+backend/tests/Integration/ErrorCatalogTest.php::it has a hand-written Spanish validation file with the rules in use
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('bad_request')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('csrf_token_mismatch')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('forbidden')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('http_error')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('internal_error')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('method_not_allowed')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('not_found')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('service_unavailable')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('too_many_requests')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('unauthenticated')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a message for every generic code the renderer can produce with data set "('validation_failed')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "('default')"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(400)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(401)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(403)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(404)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(405)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(409)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(419)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(422)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(429)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(500)"
+backend/tests/Integration/ErrorCatalogTest.php::it has a title for every status the renderer maps, and a default with data set "(503)"
+backend/tests/Integration/ErrorCatalogTest.php::it has the Spanish messages specified for the company context errors
+backend/tests/Integration/ErrorCatalogTest.php::it runs in Spanish with English as fallback
+backend/tests/Integration/ErrorCatalogTest.php::it uses distinct codes for distinct DomainError classes
+backend/tests/Integration/ForeignKeyCatalogTest.php::it every foreign key of a tenant table is backed by a btree index that starts with exactly its columns, in the same order
+backend/tests/Integration/ForeignKeyCatalogTest.php::it every foreign key to another tenant table carries company_id on both sides in the same position, and a simple one points only at the listed global tables
+backend/tests/Integration/ForeignKeyCatalogTest.php::it the destination rule flags a simple foreign key to a tenant table, to a global table outside the list, a reversed company_id and a table that is neither, and lets the allowed shapes pass
+backend/tests/Integration/ForeignKeyCatalogTest.php::it the index rule accepts a complete or IS NOT NULL partial btree index that starts with the columns of the foreign key and rejects the rest
+backend/tests/Integration/JobCompanyContextTest.php::it carries company_id and user_id in the serialized payload: the job that runs is a copy and enters the right company and user
+backend/tests/Integration/JobCompanyContextTest.php::it clears a leftover company context before a job without middleware, so it sees no rows (safety net)
+backend/tests/Integration/JobCompanyContextTest.php::it does not let a job without middleware inherit the user left in context by a previous job (Queue::before)
+backend/tests/Integration/JobCompanyContextTest.php::it does not let a job without middleware inherit the user of a job that ran just before it
+backend/tests/Integration/JobCompanyContextTest.php::it does not serialize the connection or the context inside the middleware
+backend/tests/Integration/JobCompanyContextTest.php::it leaves no company and no user in context after the job is processed
+backend/tests/Integration/JobCompanyContextTest.php::it lets the exception of a job that fails after entering reach the caller and leaves no company and no user in context
+backend/tests/Integration/JobCompanyContextTest.php::it middleware enters the company and the user before running next and leaves them after when next succeeds
+backend/tests/Integration/JobCompanyContextTest.php::it middleware leaves the company and the user even when the next step throws
+backend/tests/Integration/JobCompanyContextTest.php::it raises JobProcessing on the sync queue before running the job (premise of the safety net)
+backend/tests/Integration/JobCompanyContextTest.php::it serializes only company_id and user_id of the middleware, and they survive a round trip
+backend/tests/Integration/JobCompanyContextTest.php::it shows a job dispatched for company A only the rows of A, and one for B only the rows of B
+backend/tests/Integration/JobCompanyContextTest.php::it shows the job the user of its payload, and a job dispatched for another user sees that one
+backend/tests/Integration/JournalEntryLineTest.php::it accepts a line with every dimension of its own company and an existing municipality
+backend/tests/Integration/JournalEntryLineTest.php::it reads the amounts back as exact strings, with the missing side at 0.00 from its DEFAULT
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a blank description with journal_entry_line_description_check (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a blank description with journal_entry_line_description_check (SQLSTATE 23514) with data set "dataset "spaces""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a municipality that does not exist with journal_entry_line_municipality_fkey (SQLSTATE 23503)
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a reference to a row of another company with the composite foreign key of the column (SQLSTATE 23503) with data set "dataset "account""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a reference to a row of another company with the composite foreign key of the column (SQLSTATE 23503) with data set "dataset "construction project""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a reference to a row of another company with the composite foreign key of the column (SQLSTATE 23503) with data set "dataset "cost center""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a reference to a row of another company with the composite foreign key of the column (SQLSTATE 23503) with data set "dataset "journal entry""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects a reference to a row of another company with the composite foreign key of the column (SQLSTATE 23503) with data set "dataset "third party""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "both positive""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "both zero""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "credit that rounds to 0.00""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "debit that rounds to 0.00""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "negative credit""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "negative debit against a positive credit""
+backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "negative debit""
+backend/tests/Integration/JournalEntryLineTest.php::it takes the company of the context and leaves the dimensions and the description empty
+backend/tests/Integration/JournalEntryTest.php::it accepts the same number for another document type or in another numbering year
+backend/tests/Integration/JournalEntryTest.php::it copies the document type of the document, which the insert does not pass
+backend/tests/Integration/JournalEntryTest.php::it does not let pyme_app insert a column that the trigger or a DEFAULT fills (SQLSTATE 42501) with data set "('accounting_framework')"
+backend/tests/Integration/JournalEntryTest.php::it does not let pyme_app insert a column that the trigger or a DEFAULT fills (SQLSTATE 42501) with data set "('created_txid')"
+backend/tests/Integration/JournalEntryTest.php::it does not let pyme_app insert a column that the trigger or a DEFAULT fills (SQLSTATE 42501) with data set "('document_type_id')"
+backend/tests/Integration/JournalEntryTest.php::it does not let pyme_app insert a column that the trigger or a DEFAULT fills (SQLSTATE 42501) with data set "('number_year')"
+backend/tests/Integration/JournalEntryTest.php::it does not let pyme_app insert a column that the trigger or a DEFAULT fills (SQLSTATE 42501) with data set "('posted_at')"
+backend/tests/Integration/JournalEntryTest.php::it numbers by the year of the period when the document type restarts each year, and without year when it does not with data set "dataset "does not restart""
+backend/tests/Integration/JournalEntryTest.php::it numbers by the year of the period when the document type restarts each year, and without year when it does not with data set "dataset "restarts each year""
+backend/tests/Integration/JournalEntryTest.php::it rejects a NULL document_id with the NOT NULL constraint (SQLSTATE 23502, not the message of the trigger)
+backend/tests/Integration/JournalEntryTest.php::it rejects a NULL period_id with the NOT NULL constraint (SQLSTATE 23502, not the message of the trigger)
+backend/tests/Integration/JournalEntryTest.php::it rejects a document of another company (SQLSTATE 23503, message of the trigger)
+backend/tests/Integration/JournalEntryTest.php::it rejects a document that does not exist (SQLSTATE 23503, message of the trigger)
+backend/tests/Integration/JournalEntryTest.php::it rejects a period of another company (SQLSTATE 23503, message of the trigger)
+backend/tests/Integration/JournalEntryTest.php::it rejects a period that does not exist (SQLSTATE 23503, message of the trigger)
+backend/tests/Integration/JournalEntryTest.php::it rejects a second journal entry for the same document with journal_entry_company_id_document_id_key (SQLSTATE 23505)
+backend/tests/Integration/JournalEntryTest.php::it rejects an insert without company context with the RLS policy (SQLSTATE 42501, not the message of the trigger)
+backend/tests/Integration/JournalEntryTest.php::it rejects number 0 with journal_entry_number_check (SQLSTATE 23514)
+backend/tests/Integration/JournalEntryTest.php::it rejects the same type and number on another document when the type does not restart each year, where number_year is NULL (NULLS NOT DISTINCT)
+backend/tests/Integration/JournalEntryTest.php::it rejects the same type, numbering year and number on another document with journal_entry_number_key (SQLSTATE 23505)
+backend/tests/Integration/JournalEntryTest.php::it takes the company of the context and the defaults of the framework and the posting time
+backend/tests/Integration/LoggingCatalogTest.php::it defaults to the stderr channel when nothing overrides it
+backend/tests/Integration/LoggingCatalogTest.php::it documents the stderr channel as the default in .env.example
+backend/tests/Integration/LoggingCatalogTest.php::it does not keep arguments in exception traces (they carry passwords and NIT)
+backend/tests/Integration/LoggingCatalogTest.php::it forces the null channel under phpunit so the tests write no logs by themselves
+backend/tests/Integration/LoggingCatalogTest.php::it formats the stderr channel as JSON and registers the redaction processor on it
+backend/tests/Integration/LoggingCatalogTest.php::it hides the bindings of a failed query on every database connection with data set "('pgsql')"
+backend/tests/Integration/LoggingCatalogTest.php::it hides the bindings of a failed query on every database connection with data set "('pgsql_owner')"
+backend/tests/Integration/LoggingCatalogTest.php::it keeps the stderr channel pointed at php://stderr through the monolog driver
+backend/tests/Integration/MunicipalitySeedTruncationTest.php::it keeps the seeded municipalities after truncating all tables of DatabaseTruncationAsOwner
+backend/tests/Integration/MunicipalityTest.php::it accepts a valid row from the owner and fills department_code with the first two digits of the code
+backend/tests/Integration/MunicipalityTest.php::it does not let pyme_app delete from municipality (SQLSTATE 42501)
+backend/tests/Integration/MunicipalityTest.php::it does not let pyme_app insert into municipality (SQLSTATE 42501)
+backend/tests/Integration/MunicipalityTest.php::it does not let pyme_app update municipality (SQLSTATE 42501)
+backend/tests/Integration/MunicipalityTest.php::it holds exactly the rows of the DIVIPOLA file, with the department code derived from the municipality code
+backend/tests/Integration/MunicipalityTest.php::it rejects a NULL in a required column (NOT NULL, SQLSTATE 23502) with data set "('code')"
+backend/tests/Integration/MunicipalityTest.php::it rejects a NULL in a required column (NOT NULL, SQLSTATE 23502) with data set "('department_name')"
+backend/tests/Integration/MunicipalityTest.php::it rejects a NULL in a required column (NOT NULL, SQLSTATE 23502) with data set "('name')"
+backend/tests/Integration/MunicipalityTest.php::it rejects a blank department_name with municipality_department_name_check (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/MunicipalityTest.php::it rejects a blank department_name with municipality_department_name_check (SQLSTATE 23514) with data set "dataset "spaces""
+backend/tests/Integration/MunicipalityTest.php::it rejects a blank name with municipality_name_check (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/MunicipalityTest.php::it rejects a blank name with municipality_name_check (SQLSTATE 23514) with data set "dataset "spaces""
+backend/tests/Integration/MunicipalityTest.php::it rejects a code that is not five digits with municipality_code_check (SQLSTATE 23514) with data set "dataset "four digits""
+backend/tests/Integration/MunicipalityTest.php::it rejects a code that is not five digits with municipality_code_check (SQLSTATE 23514) with data set "dataset "letters""
+backend/tests/Integration/MunicipalityTest.php::it rejects a code that is not five digits with municipality_code_check (SQLSTATE 23514) with data set "dataset "six digits""
+backend/tests/Integration/MunicipalityTest.php::it rejects a duplicate code taken from the seed with municipality_code_key (UNIQUE, SQLSTATE 23505)
+backend/tests/Integration/MunicipalityTest.php::it rejects an explicit department_code because the column is generated (SQLSTATE 428C9)
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it lets two lockForPosting of the same period live together without waiting
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it makes lockForClosing in B wait while A holds lockForPosting (SQLSTATE 55P03)
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it makes lockForPosting in B wait while A holds lockForClosing (SQLSTATE 55P03)
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it returns the status of the period: Open, and Closed after closing it with an update, without rejecting it with data set "('lockForClosing')"
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it returns the status of the period: Open, and Closed after closing it with an update, without rejecting it with data set "('lockForPosting')"
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it throws LogicException outside a transaction from both lock methods
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it throws PeriodNotFound for the period of another company, which RLS hides with data set "('lockForClosing')"
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it throws PeriodNotFound for the period of another company, which RLS hides with data set "('lockForPosting')"
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it throws PeriodNotFound when the period does not exist with data set "('lockForClosing')"
+backend/tests/Integration/PeriodLocksConcurrencyTest.php::it throws PeriodNotFound when the period does not exist with data set "('lockForPosting')"
+backend/tests/Integration/PeriodTest.php::it accepts the same year and number in another company, and each company sees only its own period
+backend/tests/Integration/PeriodTest.php::it defaults the status to open
+backend/tests/Integration/PeriodTest.php::it does not let pyme_app delete a period (no DELETE privilege, SQLSTATE 42501)
+backend/tests/Integration/PeriodTest.php::it does not let pyme_app update the number (no UPDATE privilege on the column, SQLSTATE 42501)
+backend/tests/Integration/PeriodTest.php::it does not let pyme_app update the year (no UPDATE privilege on the column, SQLSTATE 42501)
+backend/tests/Integration/PeriodTest.php::it generates type, start_date and end_date from year and number with data set "dataset "adjustment period 13 shares the date of december""
+backend/tests/Integration/PeriodTest.php::it generates type, start_date and end_date from year and number with data set "dataset "april (30 days)""
+backend/tests/Integration/PeriodTest.php::it generates type, start_date and end_date from year and number with data set "dataset "december""
+backend/tests/Integration/PeriodTest.php::it generates type, start_date and end_date from year and number with data set "dataset "february of a leap year""
+backend/tests/Integration/PeriodTest.php::it generates type, start_date and end_date from year and number with data set "dataset "february of a non leap year""
+backend/tests/Integration/PeriodTest.php::it generates type, start_date and end_date from year and number with data set "dataset "january""
+backend/tests/Integration/PeriodTest.php::it generates type, start_date and end_date from year and number with data set "dataset "opening period 0""
+backend/tests/Integration/PeriodTest.php::it lets pyme_app update the status to closed
+backend/tests/Integration/PeriodTest.php::it rejects a number outside 0 to 13 with the CHECK constraint (SQLSTATE 23514), not with a date error from the generated columns with data set "dataset "above the range""
+backend/tests/Integration/PeriodTest.php::it rejects a number outside 0 to 13 with the CHECK constraint (SQLSTATE 23514), not with a date error from the generated columns with data set "dataset "below the range""
+backend/tests/Integration/PeriodTest.php::it rejects a second period with the same company, year and number (UNIQUE, SQLSTATE 23505)
+backend/tests/Integration/PeriodTest.php::it rejects a status other than open or closed (CHECK, SQLSTATE 23514)
+backend/tests/Integration/PeriodTest.php::it stores the active company in company_id when the insert does not pass it
+backend/tests/Integration/PostgresConnectionTest.php::it does not use persistent PDO connections
+backend/tests/Integration/PostgresConnectionTest.php::it runs against Postgres on the test database, never the development one
+backend/tests/Integration/TenantIsolationTest.php::it deletes nothing of another company and its rows survive
+backend/tests/Integration/TenantIsolationTest.php::it every public table with a company_id column also has it NOT NULL with a DEFAULT read from the context, except the global tables
+backend/tests/Integration/TenantIsolationTest.php::it every public table with a company_id column has RLS enabled, forced and at least one policy, except the global tables
+backend/tests/Integration/TenantIsolationTest.php::it every public table with a company_id column has exactly the expected policies, except the global tables
+backend/tests/Integration/TenantIsolationTest.php::it every public tenant table, except the global and the exempt ones, has AFTER ROW triggers that run audit_log_capture for INSERT, UPDATE and DELETE
+backend/tests/Integration/TenantIsolationTest.php::it every unique constraint and unique index of a tenant table, primary key aside, has company_id among its key columns
+backend/tests/Integration/TenantIsolationTest.php::it rejects an insert without context (RLS policy, SQLSTATE 42501, fail closed)
+backend/tests/Integration/TenantIsolationTest.php::it rejects moving a row to another company with an update (no UPDATE privilege on company_id, SQLSTATE 42501)
+backend/tests/Integration/TenantIsolationTest.php::it shows no rows when the context is empty, even if there is data (fail closed)
+backend/tests/Integration/TenantIsolationTest.php::it shows no rows when the context was never set in the session (fail closed)
+backend/tests/Integration/TenantIsolationTest.php::it shows only the rows of the active company
+backend/tests/Integration/TenantIsolationTest.php::it stores the active company in company_id when the insert does not pass it
+backend/tests/Integration/TenantIsolationTest.php::it the public tables without a company_id column are exactly TenantCatalog::TABLES_WITHOUT_COMPANY_ID
+backend/tests/Integration/TenantModelCatalogTest.php::it every model of a tenant table has the company scope and takes neither id nor company_id from mass assignment
+backend/tests/Integration/TenantModelCatalogTest.php::it the fillable columns of every model of a tenant table are exactly the columns where pyme_app has INSERT
+backend/tests/Integration/ThirdPartyTest.php::it accepts a natural person with all four name columns
+backend/tests/Integration/ThirdPartyTest.php::it accepts any ISO 3166-1 alpha-2 shaped country with data set "('CO')"
+backend/tests/Integration/ThirdPartyTest.php::it accepts any ISO 3166-1 alpha-2 shaped country with data set "('US')"
+backend/tests/Integration/ThirdPartyTest.php::it accepts the id_number formats of each id_type: only digits for a NIT, alphanumeric for the others with data set "dataset "NIT with digits only""
+backend/tests/Integration/ThirdPartyTest.php::it accepts the id_number formats of each id_type: only digits for a NIT, alphanumeric for the others with data set "dataset "cédula type with letters and digits""
+backend/tests/Integration/ThirdPartyTest.php::it accepts the id_number formats of each id_type: only digits for a NIT, alphanumeric for the others with data set "dataset "other type with digits""
+backend/tests/Integration/ThirdPartyTest.php::it accepts the id_number formats of each id_type: only digits for a NIT, alphanumeric for the others with data set "dataset "other type with letters and digits""
+backend/tests/Integration/ThirdPartyTest.php::it accepts the same id_number with another id_type or another country in the same company
+backend/tests/Integration/ThirdPartyTest.php::it accepts the same identification in another company, and each company sees only its own third parties
+backend/tests/Integration/ThirdPartyTest.php::it casts is_active to a strict bool in memory and has no timestamps (without a cast the integers would stay as they are)
+backend/tests/Integration/ThirdPartyTest.php::it casts person_type to PersonType when read back from the database through the model
+backend/tests/Integration/ThirdPartyTest.php::it has the PersonType cases natural and legal
+backend/tests/Integration/ThirdPartyTest.php::it inserts a natural and a legal third party with the company of the context, and applies the defaults
+backend/tests/Integration/ThirdPartyTest.php::it keeps is_active as given when it is false
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "legal with a blank business_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "legal with an empty business_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "natural with a blank first_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "natural with a blank first_surname""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "natural with a blank middle_names""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "natural with a blank second_surname""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "natural with an empty first_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "natural with an empty middle_names""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a blank text in any of the name columns with third_party_names_not_blank_check (SQLSTATE 23514) with data set "dataset "natural with an empty second_surname""
+backend/tests/Integration/ThirdPartyTest.php::it rejects a second third party with the same id_type, id_number and country in the company (UNIQUE, SQLSTATE 23505)
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "country NULL""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "country omitted (no default)""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "id_number NULL""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "id_number omitted""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "id_type NULL""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "id_type omitted""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "is_active NULL""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "person_type NULL""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an insert that leaves a required column out or NULL (NOT NULL, SQLSTATE 23502) with data set "dataset "person_type omitted (no default)""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid country with third_party_country_check (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid country with third_party_country_check (SQLSTATE 23514) with data set "dataset "letter and digit""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid country with third_party_country_check (SQLSTATE 23514) with data set "dataset "lowercase""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid country with third_party_country_check (SQLSTATE 23514) with data set "dataset "one letter""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid country with third_party_country_check (SQLSTATE 23514) with data set "dataset "three letters""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "NIT with a check digit""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "NIT with dots""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "NIT with letters""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "alphanumeric with a leading space""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "blank""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "leading space""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_number with the CHECK constraint of its rule (SQLSTATE 23514) with data set "dataset "trailing space""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_type with third_party_id_type_check (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_type with third_party_id_type_check (SQLSTATE 23514) with data set "dataset "letters""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_type with third_party_id_type_check (SQLSTATE 23514) with data set "dataset "one digit""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid id_type with third_party_id_type_check (SQLSTATE 23514) with data set "dataset "three digits""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid person_type with third_party_person_type_check (SQLSTATE 23514) with data set "dataset "empty""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid person_type with third_party_person_type_check (SQLSTATE 23514) with data set "dataset "unknown value""
+backend/tests/Integration/ThirdPartyTest.php::it rejects an invalid person_type with third_party_person_type_check (SQLSTATE 23514) with data set "dataset "wrong case""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "legal with first_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "legal with first_surname""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "legal with middle_names""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "legal with second_surname""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "legal without business_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "natural with business_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "natural without first_name""
+backend/tests/Integration/ThirdPartyTest.php::it rejects name columns that do not fit the person type with third_party_names_check (SQLSTATE 23514) with data set "dataset "natural without first_surname""
+backend/tests/Integration/ThirdPartyTest.php::it stores a third party created through the model in the company of the context, with the enum as person_type
+backend/tests/Unit/DomainErrorTest.php::it declares the stable code and the kind as abstract
+backend/tests/Unit/DomainErrorTest.php::it has exactly the kinds Invalid, NotFound, Forbidden and Conflict
+backend/tests/Unit/DomainErrorTest.php::it is an abstract RuntimeException
+backend/tests/Unit/DomainErrorTest.php::it keeps the internal message, exposes the code and the kind, and has an empty context by default
+backend/tests/Unit/DomainErrorTest.php::it lets a concrete error provide its context for the logs
+backend/tests/Unit/RedactSensitiveDataTest.php::it does not touch values that are objects, such as the exception of a log record
+backend/tests/Unit/RedactSensitiveDataTest.php::it does nothing to a record with empty context and extra
+backend/tests/Unit/RedactSensitiveDataTest.php::it ignores the case of the key with data set "('Api_Key')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it ignores the case of the key with data set "('Authorization')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it ignores the case of the key with data set "('Cookie')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it ignores the case of the key with data set "('DB_PASSWORD')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it ignores the case of the key with data set "('PASSWORD')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it ignores the case of the key with data set "('X-CSRF-Token')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it keeps integer keys of lists and does not fail on them
+backend/tests/Unit/RedactSensitiveDataTest.php::it keeps the rest of the record as it was
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('amount')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('authorization_status')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('company_id')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('cookie_count')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('name')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('request_id')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('secretary')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('tokenizer')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it leaves keys that are not sensitive untouched with data set "('user_id')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts at any depth, including inside lists of arrays
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts keys that end with _password, _token or _secret with data set "('Smtp_Password')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts keys that end with _password, _token or _secret with data set "('access_token')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts keys that end with _password, _token or _secret with data set "('client_secret')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts keys that end with _password, _token or _secret with data set "('db_password')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts keys that end with _password, _token or _secret with data set "('refresh_token')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts keys that end with _password, _token or _secret with data set "('webhook_secret')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('_token')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('api_key')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('authorization')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('cookie')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('current_password')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('password')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('password_confirmation')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('secret')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('token')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('x-csrf-token')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it redacts the value of every sensitive key, in context and in extra with data set "('x-xsrf-token')"
+backend/tests/Unit/RedactSensitiveDataTest.php::it replaces the whole value of a sensitive key, whatever its type
+frontend/src/App.test.tsx::App > renders the title

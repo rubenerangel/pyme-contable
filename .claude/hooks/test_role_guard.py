@@ -94,6 +94,31 @@ class RoleGuardTest(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertBlocked(self.bash("tester", command), "not even through Bash")
 
+    def test_tester_writes_the_vitest_setup_but_not_the_gate_state(self):
+        self.assertAllowed(self.write("tester", "frontend/src/test/setup.ts"))
+        for path in (".gate/red.json", "backend/.gate/pest.xml", "scripts/gate-baseline.txt",
+                     "frontend/vite.config.ts", "backend/phpunit.xml"):
+            with self.subTest(path=path):
+                self.assertBlocked(self.write("tester", path), "tester only writes test files")
+        for command in ("echo '{}' > .gate/red.json", "cp /tmp/x .gate/red.json",
+                        "tee scripts/gate-baseline.txt < /tmp/x"):
+            with self.subTest(command=command):
+                self.assertBlocked(self.bash("tester", command), "not even through Bash")
+
+    def test_writers_never_run_the_gate(self):
+        for role in ("tester", "coder"):
+            for command in ("python3 scripts/gate.py green", "cd scripts && python3 gate.py red",
+                            "python3 ./scripts/gate.py lock 2>&1 | tail -5", "scripts/gate.py baseline",
+                            "python3 -m scripts.gate lock", "python3 scripts/gat?.py lock",
+                            "python3 scripts/gate.p[y] lock", "python3 scripts/gat''e.py green",
+                            "python3 scripts/{gate,x}.py lock"):
+                with self.subTest(role=role, command=command):
+                    self.assertBlocked(self.bash(role, command), "scripts/gate.py belongs to the architect")
+        self.assertAllowed(self.bash("coder", "python3 -m unittest scripts/test_gate.py"))
+
+    def test_reviewers_never_run_the_gate(self):
+        self.assertBlocked(self.bash("code-reviewer", "python3 scripts/gate.py green"), "not in the allowlist")
+
     def test_nobody_writes_outside_the_project(self):
         self.assertBlocked(self.write("tester", "../backend/tests/X.php"), "outside the project")
         self.assertBlocked(self.write("coder", "/etc/passwd"), "outside the project")
@@ -111,7 +136,6 @@ class RoleGuardTest(unittest.TestCase):
         self.assertAllowed(self.write("coder", "backend/app/Models/Account.php"))
         self.assertAllowed(self.write("coder", "backend/database/migrations/2026_01_01_x.php"))
         self.assertAllowed(self.write("coder", "backend/.env.example"))
-        self.assertAllowed(self.write("coder", "compose.yaml"))
         self.assertAllowed(self.write("coder", "db/init/01-roles.sql"))
 
     def test_coder_never_writes_tests_docs_agents_ci_or_env(self):
@@ -125,10 +149,24 @@ class RoleGuardTest(unittest.TestCase):
             "backend/.env",
             ".github/workflows/ci.yml",
             "backend/phpunit.xml",
-            "scripts/gate",
+            "scripts/gate.py",
+            "scripts/gate-baseline.txt",
+            "frontend/src/test/setup.ts",
+            "frontend/vite.config.ts",
+            "frontend/vitest.config.ts",
+            ".gate/red.json",
+            "backend/.gate/pest.xml",
+            "frontend/.gate/vitest.xml",
+            # Compose decides what the gate runs: it belongs to the architect.
+            "compose.yaml",
+            "compose.override.yaml",
+            "docker-compose.override.yml",
+            # autoload-dev files could load a fake test helper before tests/ does.
+            "backend/composer.json",
         ):
             with self.subTest(path=path):
                 self.assertBlocked(self.write("coder", path), "coder never edits")
+        self.assertAllowed(self.write("coder", "docker/php/php.ini"))
 
     def test_coder_cannot_write_protected_paths_through_bash(self):
         for command in (
@@ -139,6 +177,15 @@ class RoleGuardTest(unittest.TestCase):
             "sed -i 's/guards//' .github/workflows/ci.yml",
             "cp /tmp/x.xml backend/phpunit.xml",
             "touch scripts/gate",
+            "echo '{}' > .gate/red.json",
+            "cp /tmp/x .gate/red.json",
+            "cd backend && cp /tmp/x.xml .gate/pest.xml",
+            "sed -i 's/a/b/' scripts/gate-baseline.txt",
+            "sed -i 's/a/b/' frontend/vite.config.ts",
+            "cp /tmp/x.yaml compose.override.yaml",
+            "sed -i 's/a/b/' compose.yaml",
+            "sed -i 's/a/b/' backend/composer.json",
+            "cd backend && cp /tmp/x.json composer.json",
         ):
             with self.subTest(command=command):
                 self.assertBlocked(self.bash("coder", command), "not even through Bash")

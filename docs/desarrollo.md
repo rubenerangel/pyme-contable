@@ -61,6 +61,20 @@ python3 -m unittest discover -s .claude/hooks -v
 
 Corre con el python3 de WSL (ver [entorno.md](entorno.md)), no en un contenedor. Para ver una regla en rojo, quítala de role_guard.py y vuelve a correr.
 
+## Gate de tests
+
+```bash
+python3 scripts/gate.py red                          # fin del paso 3: tests nuevos en rojo
+python3 scripts/gate.py red --expect-pass '<id>'     # un control que debe pasar desde el inicio
+python3 scripts/gate.py red --allow-removed '<id>'   # un test que el paso borra a propósito
+python3 scripts/gate.py red --replace                # repetir red en una ronda de correcciones
+python3 scripts/gate.py lock                         # paso solo de tests, todo en verde
+python3 scripts/gate.py green                        # fin del paso 4: mismos hashes y todo en verde
+python3 -m unittest discover -s scripts -v           # tests del gate
+```
+
+Corre con el python3 de WSL y lanza las suites en Docker (necesita `docker compose up -d`). Los ids están en scripts/gate-baseline.txt. Ver [workflow.md](workflow.md), Gate de tests.
+
 ## Base de datos
 
 - `pyme`: desarrollo. `pyme_test`: tests, forzada en phpunit.xml.

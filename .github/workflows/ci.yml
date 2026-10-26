@@ -74,7 +74,7 @@ jobs:
       - run: npm run build
 
   guards:
-    # The agent hook is a security control: its tests run like any other.
+    # The agent hook and the test gate are controls: their tests run like any other.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -84,6 +84,9 @@ jobs:
 
       - name: Hook tests
         run: python3 -m unittest discover -s .claude/hooks -v
+
+      - name: Gate tests
+        run: python3 -m unittest discover -s scripts -v
 
       - name: settings.json is valid JSON
         run: python3 -m json.tool .claude/settings.json > /dev/null

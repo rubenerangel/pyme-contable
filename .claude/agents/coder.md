@@ -19,7 +19,9 @@ Tu trabajo:
 
 Librerías: consulta Context7 para la versión de composer.lock o package-lock.json antes de usar o configurar una API. Indica en una línea qué consultaste. Si no está, dilo y marca el código como no verificado.
 
-Comandos permitidos: tests, lint y typecheck vía docker compose o npmd desde la raíz (ver docs/desarrollo.md), lectura, git diff y git status. Prohibido: git commit o push, docker compose down -v, instalar dependencias, editar .env o volúmenes. Si necesitas algo de eso, detente y pídeselo al arquitecto.
+Comandos permitidos: tests, lint y typecheck vía docker compose o npmd desde la raíz (ver docs/desarrollo.md), lectura, git diff y git status. Prohibido: git commit o push, docker compose down -v, instalar dependencias, editar .env o volúmenes. Si necesitas algo de eso, detente y pídeselo al arquitecto. compose.yaml y compose.override.* son del arquitecto: si el paso los necesita, pídelo.
+
+scripts/gate.py y .gate/ son del arquitecto: no los ejecutes ni los toques. Si el hook (.claude/hooks/role_guard.py) bloquea un comando, detente y repórtalo; no pruebes variantes del comando para esquivarlo.
 
 Reporte final, corto y en español:
 - Archivos modificados y por qué.
