@@ -103,8 +103,18 @@
 
 ### Integridad en Postgres
 
-- Partida doble con constraint trigger diferido al commit sobre las líneas. Valida una vez por asiento y transacción usando una marca local con set_config(..., true). Atrapa líneas agregadas en otra transacción. Un CHECK no sirve porque abarca varias filas.
-- Asiento contabilizado con al menos 2 líneas: un asiento sin líneas suma cero y pasaría el cuadre.
+- Partida doble con constraint triggers diferidos al commit. Un CHECK no sirve porque abarca varias filas. La regla está en una sola función, journal_entry_assert_balanced: al menos 2 líneas (un asiento sin líneas suma cero y pasaría el cuadre) y suma de débitos igual a suma de créditos, en numeric. La llaman dos triggers.
+  - journal_entry_balance, sobre journal_entry, atrapa el asiento que nunca recibe líneas.
+  - journal_entry_line_balance, sobre las líneas, valida una vez por asiento: solo cuando no hay una línea visible de id mayor (NOT EXISTS, no NEW.id = max(id), que con RLS ocultando las líneas da NULL y saltaba la validación). Atrapa una línea agregada después de SET CONSTRAINTS ALL IMMEDIATE. Antes revalida el sellado en cada línea, porque al commit todo lo confirmado es visible.
+  - Sin marcas de set_config, por dos motivos: la aplicación puede fijar app.* y falsificarlas, y una marca es estado que puede filtrarse entre transacciones u olvidarse al revertir un savepoint.
+  - La regla del id mayor depende de que los ids crezcan dentro del asiento. Eso se cumple porque el sellado deja todas sus líneas en una sola transacción y porque pyme_app no inserta id ni tiene UPDATE sobre la secuencia (no puede hacer setval). Ambas cosas las exige un test.
+  - Una línea de otra transacción que se cuela en la carrera del sellado puede tener un id menor. Por eso la revalidación del sellado corre en cada línea y antes de la regla del id mayor.
+  - Los triggers leen con RLS: si al commit falta el contexto, no ven líneas y rechazan, así que fallan cerrados.
+- Sellado: las líneas solo entran en la transacción que creó el asiento. Lo controla un trigger BEFORE INSERT sobre las líneas, que compara journal_entry.created_txid (DEFAULT pg_current_xact_id(), sin INSERT para pyme_app) con pg_current_xact_id().
+  - No compara con xmin: un asiento insertado dentro de un savepoint lleva en xmin el xid de la subtransacción, mientras que pg_current_xact_id() devuelve el de nivel superior.
+  - Si falta el contexto o el asiento no se ve, deja responder a RLS (42501) o a la FK (23503).
+  - El sellado es lo único que impide agregar un par cuadrado de líneas a un asiento ya confirmado.
+  - En READ COMMITTED, el SELECT del BEFORE puede no ver un asiento que otra transacción confirma antes del chequeo de la FK de la misma sentencia. Por eso el trigger diferido de líneas revalida el sellado al commit. Un test lo simula apagando el BEFORE como dueño.
 - Línea: CHECK de débito y crédito mayores o iguales a cero y exactamente uno mayor que cero, sin excepciones.
 - Trigger sobre las líneas: cuenta imputable, activa y con las dimensiones que exigen sus flags.
 - Trigger sobre el documento: periodo abierto, accounting_date dentro del periodo, tipo de documento permitido en el periodo 13. Es la red bajo los bloqueos de la acción Contabilizar.

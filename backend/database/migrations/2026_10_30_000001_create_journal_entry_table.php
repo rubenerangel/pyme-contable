@@ -17,8 +17,8 @@ return new class extends Migration
         // document_type_id and number_year are derived by the trigger from the document and its period; they are
         // columns of the entry so that the numbering key can be a plain UNIQUE. number_year is NULL for a type that
         // does not restart each year, hence NULLS NOT DISTINCT: without it two entries with the same number would
-        // pass. created_txid is the transaction that inserted the entry; the seal of step 5b compares it with the
-        // current one to tell lines added in the same transaction from lines added later. accounting_framework has a
+        // pass. created_txid is the transaction that inserted the entry; the seal of the next migration compares it
+        // with the current one to tell lines added in the same transaction from lines added later. accounting_framework has a
         // single value for now (financial); the CHECK widens when another framework exists.
         DB::statement(<<<'SQL'
             CREATE TABLE journal_entry (

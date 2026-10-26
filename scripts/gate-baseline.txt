@@ -185,6 +185,7 @@ backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app inser
 backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "journal_entry_line""
 backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "period""
 backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app insert an explicit id (no INSERT privilege on the column, SQLSTATE 42501) with data set "dataset "third_party""
+backend/tests/Integration/AppPermissionsTest.php::it does not let pyme_app move journal_entry_line_id_seq backwards (only USAGE, no UPDATE: setval gives SQLSTATE 42501)
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into construction_project without an id and gets one (USAGE on construction_project_id_seq)
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into cost_center without an id and gets one (USAGE on cost_center_id_seq)
 backend/tests/Integration/AppPermissionsTest.php::it pyme_app can insert into document without an id and gets one (USAGE on document_id_seq)
@@ -416,6 +417,20 @@ backend/tests/Integration/JobCompanyContextTest.php::it raises JobProcessing on 
 backend/tests/Integration/JobCompanyContextTest.php::it serializes only company_id and user_id of the middleware, and they survive a round trip
 backend/tests/Integration/JobCompanyContextTest.php::it shows a job dispatched for company A only the rows of A, and one for B only the rows of B
 backend/tests/Integration/JobCompanyContextTest.php::it shows the job the user of its payload, and a job dispatched for another user sees that one
+backend/tests/Integration/JournalEntryBalanceTest.php::it accepts a balanced entry of three lines (100.00 = 60.00 + 40.00)
+backend/tests/Integration/JournalEntryBalanceTest.php::it accepts amounts that do not add up in binary floating point (0.10 + 0.20 = 0.30)
+backend/tests/Integration/JournalEntryBalanceTest.php::it accepts an entry with two balanced lines inserted one per statement
+backend/tests/Integration/JournalEntryBalanceTest.php::it rejects a line added after SET CONSTRAINTS ALL IMMEDIATE validated a balanced entry
+backend/tests/Integration/JournalEntryBalanceTest.php::it rejects an entry with two unbalanced lines (SQLSTATE 23514, unbalanced)
+backend/tests/Integration/JournalEntryBalanceTest.php::it rejects an entry without lines when deferred constraints are checked (SQLSTATE 23514, fewer than two lines)
+backend/tests/Integration/JournalEntryBalanceTest.php::it rejects an unbalanced line whose later sibling was rolled back with its savepoint
+backend/tests/Integration/JournalEntryBalanceTest.php::it rejects at the deferred check an unbalanced line when the company context is gone (fails closed)
+backend/tests/Integration/JournalEntryCommitTest.php::it commits a balanced entry with its lines
+backend/tests/Integration/JournalEntryCommitTest.php::it rejects a balanced pair of lines added to an entry committed earlier
+backend/tests/Integration/JournalEntryCommitTest.php::it rejects a line added to an entry committed in an earlier transaction (SQLSTATE 23514, sealed)
+backend/tests/Integration/JournalEntryCommitTest.php::it rejects an unbalanced entry at COMMIT and persists neither the entry nor its lines
+backend/tests/Integration/JournalEntryCommitTest.php::it rejects at COMMIT a balanced pair added to an entry committed earlier when the insert-time seal did not see it
+backend/tests/Integration/JournalEntryCommitTest.php::it rejects at COMMIT a line that slipped past the insert-time seal even when the committed entry has lines with greater ids
 backend/tests/Integration/JournalEntryLineTest.php::it accepts a line with every dimension of its own company and an existing municipality
 backend/tests/Integration/JournalEntryLineTest.php::it reads the amounts back as exact strings, with the missing side at 0.00 from its DEFAULT
 backend/tests/Integration/JournalEntryLineTest.php::it rejects a blank description with journal_entry_line_description_check (SQLSTATE 23514) with data set "dataset "empty""
@@ -434,6 +449,10 @@ backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair th
 backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "negative debit against a positive credit""
 backend/tests/Integration/JournalEntryLineTest.php::it rejects an amount pair that is not exactly one positive side with journal_entry_line_amounts_check (SQLSTATE 23514) with data set "dataset "negative debit""
 backend/tests/Integration/JournalEntryLineTest.php::it takes the company of the context and leaves the dimensions and the description empty
+backend/tests/Integration/JournalEntrySealTest.php::it accepts an entry and its lines inserted in different savepoints
+backend/tests/Integration/JournalEntrySealTest.php::it accepts lines inserted after the savepoint that inserted the entry was released
+backend/tests/Integration/JournalEntrySealTest.php::it reports a line inserted without company context as a row level security violation (SQLSTATE 42501)
+backend/tests/Integration/JournalEntrySealTest.php::it reports a line pointing at an entry of another company as a foreign key violation (SQLSTATE 23503), not as sealed
 backend/tests/Integration/JournalEntryTest.php::it accepts the same number for another document type or in another numbering year
 backend/tests/Integration/JournalEntryTest.php::it copies the document type of the document, which the insert does not pass
 backend/tests/Integration/JournalEntryTest.php::it does not let pyme_app insert a column that the trigger or a DEFAULT fills (SQLSTATE 42501) with data set "('accounting_framework')"

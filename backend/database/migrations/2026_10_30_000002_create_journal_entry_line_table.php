@@ -6,7 +6,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 // Line of a journal entry: one debit or one credit on an account, with the dimensions that qualify it. Insert-only for
-// pyme_app, like the entry. Balancing and sealing (step 5b) and the account rules (step 5d) come later.
+// pyme_app, like the entry. Balancing and sealing are in the next migration (journal_entry_line_balance and
+// journal_entry_line_seal); the account rules (step 5d) come later.
 return new class extends Migration
 {
     public function up(): void
