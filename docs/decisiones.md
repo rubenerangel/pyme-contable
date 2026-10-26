@@ -118,6 +118,33 @@
 - Línea: CHECK de débito y crédito mayores o iguales a cero y exactamente uno mayor que cero, sin excepciones.
 - Trigger sobre las líneas: cuenta imputable, activa y con las dimensiones que exigen sus flags.
 - Trigger sobre el documento: periodo abierto, accounting_date dentro del periodo, tipo de documento permitido en el periodo 13. Es la red bajo los bloqueos de la acción Contabilizar.
+- Orden fijo de bloqueo para contabilizar. El reverso es una sola contabilización, con el mismo orden: toma FOR UPDATE solo el documento nuevo de reverso.
+  - El original no se bloquea. Contabilizado es inmutable, y su asiento no puede desaparecer porque el libro es de solo inserción.
+  - Requisito para la acción de reverso (bloque 5): verifica que el original tenga asiento confirmado. En READ COMMITTED, una contabilización del original que sigue en curso no se ve, así que el reverso se rechaza.
+  - La carrera entre dos reversos del mismo original la resuelve UNIQUE(company_id, reverses_document_id).
+- El orden:
+  1. documento FOR UPDATE;
+  2. periodo FOR SHARE;
+  3. cuentas FOR SHARE, por id ascendente y sin repetir (AccountLocks, en una sola sentencia con ORDER BY: Postgres ordena antes de bloquear);
+  4. contador, al final (el UPSERT de DocumentCounters bloquea la fila).
+  - El documento va primero porque la FK de journal_entry hacia document toma FOR KEY SHARE, que no choca con el FOR NO KEY UPDATE de una edición del borrador (Postgres 17, tabla 13.3). Sin el FOR UPDATE explícito, una edición y una contabilización del mismo documento no se excluyen. El FOR UPDATE lo toma la acción del bloque 5; el trigger del documento del 5c es la red.
+  - Del otro lado: cerrar o reabrir un periodo lo toma FOR UPDATE (PeriodLocks) y desactivar una cuenta la toma FOR UPDATE. Hoy no existe esa acción; queda escrito para cuando exista.
+    - Esperan a las contabilizaciones en curso, y cuando ya tienen el lock, las nuevas esperan.
+    - Mientras ellos esperan, las contabilizaciones nuevas todavía pueden tomar su FOR SHARE: no hay cola garantizada. Lo dice la revisión de rendimiento a partir de heapam, sin verificar. Se prueba con tres conexiones cuando exista la acción de cierre.
+    - Cerrar, reabrir y desactivar también corren con SET LOCAL lock_timeout y mapean 55P03 a 409, para no colgar un worker.
+  - Una escritura que toca varias cuentas o varios periodos (flags por rango, siembra o importación del catálogo, cierre anual) bloquea primero con SELECT ... ORDER BY id FOR UPDATE, o va de a una fila por transacción. Un UPDATE de varias filas bloquea en orden físico y puede formar un ciclo con una contabilización.
+  - Una contabilización por PostingTransaction. Dos documentos en el mismo trabajo toman dos contadores y rompen el orden. Importaciones y saldos iniciales van con un documento por transacción.
+  - Nada externo con el contador tomado, y la validación en PHP antes de los bloqueos.
+- PostingTransaction envuelve la transacción de contabilizar.
+  - Su primera sentencia es SET LOCAL lock_timeout = '5s'. Limita cada espera de lock por separado, no la contabilización completa: el peor caso es 5 s por cada lock esperado (documentación de Postgres 17). transaction_timeout acotaría el total, pero termina la sesión con FATAL y no pasa por el mapeo.
+  - No se anida: exige transactionLevel 0. En un savepoint, SET LOCAL no sería la primera sentencia y se filtraría a la transacción externa, y el cuadre diferido y un 55P03 al commit saldrían de run() sin mapeo. Por eso los tests de Contabilizar van con DatabaseTruncationAsOwner.
+  - 55P03, también al commit, se mapea a PostingLockTimeout (Conflict, 409).
+  - 40P01 no se mapea: con el orden fijo, un deadlock entre contabilizaciones es un bug, y sale como 500 al log. También puede venir de una escritura de varias cuentas o periodos que no siguió la regla de bloquear en orden de id; en ese caso el bug está en esa escritura.
+  - Verificado en Laravel 13.38.0 (vendor/laravel/framework/src/Illuminate/Database/Concerns/ManagesTransactions.php y ConcurrencyErrorDetector.php):
+    - DB::transaction usa un intento por defecto;
+    - con más intentos solo reintenta el código 40001 y los mensajes que contienen "deadlock detected" (40P01), nunca 55P03;
+    - dentro de una transacción anidada, 40001 y 40P01 salen como DeadlockException.
+  - Attempts va en 1 explícito: el código no depende de ningún reintento.
 - Bitácora de cambios de datos (maestros, borradores, parámetros) con trigger genérico: valor anterior y nuevo en jsonb, usuario tomado de set_config. Aprobaciones, cierres y reaperturas se registran como eventos explícitos en la misma tabla.
 - audit_log: pyme_app solo SELECT. Escriben dos funciones SECURITY DEFINER de pyme_owner: audit_log_capture (trigger AFTER ROW en cada tabla de negocio, salvo excepciones declaradas en el test de catálogo; un UPDATE sin cambios no deja fila) y audit_log_event (eventos, EXECUTE solo para pyme_app). Sin app.user_id fallan con 42501. Políticas de INSERT y SELECT para pyme_owner atadas al contexto de empresa (SELECT porque INSERT ... RETURNING lo exige) y ninguna de UPDATE o DELETE: con FORCE ni el dueño modifica filas. La aplicación no puede fabricar filas de cambio de datos; sí puede registrar eventos y fijar el usuario, porque app.user_id lo pone ella. Encadenamiento por hash pendiente, con un job de sellado.
 - Toda FK de una tabla de empresa tiene un índice cuyas primeras columnas son las de la FK (parcial WHERE col IS NOT NULL en las dimensiones opcionales de las líneas), exigido por catálogo. Solo cuentan índices btree, y un parcial solo si su predicado es col IS NOT NULL sobre una columna de la FK: el chequeo de RI podría usar otras formas que su igualdad implica, pero la regla acepta solo esa, conservadora a propósito. Excepciones declaradas: audit_log.user_id (un usuario con historia no se borra y el índice se pagaría en cada escritura de la bitácora) y journal_entry_line.municipality_id (solo pyme_owner borra o cambia un municipio, en migraciones, y el índice se pagaría en cada línea; un reporte de ICA por municipio traerá su propio índice). Toda FK hacia una tabla de empresa es compuesta con company_id; una FK simple solo apunta a una tabla global de una lista explícita en el test (companies, users, municipality).
@@ -158,7 +185,7 @@ Dónde se hace cumplir cada regla:
 - Consecutivo por empresa y tipo de documento, asignado al contabilizar con una tabla de contadores y bloqueo de fila en la misma transacción, nunca con secuencias de Postgres porque dejan huecos. Sin saltos es obligatorio. El reverso consume número. Reinicio anual y formato configurables. Un número asignado no se anula: se revierte.
 - Periodos por empresa y año: 0 de apertura (saldos iniciales), 1 a 12 regulares y 13 de ajustes, con tipo y estado. UNIQUE(company_id, year, number). Si usan el 13 está pendiente; el modelo lo soporta sin cambios. El periodo 13 solo admite tipos de documento de ajuste y cierre.
 - El cierre de las cuentas de resultado es un documento propio generado por el sistema, revertible por reverso al reabrir, que deja en cero las cuentas de resultado. Los reportes permiten excluir los documentos de cierre.
-- Contabilizar toma FOR SHARE sobre la fila del periodo y cerrar toma FOR UPDATE. Orden fijo de bloqueo: periodo, luego contador.
+- Contabilizar toma FOR SHARE sobre la fila del periodo y cerrar toma FOR UPDATE. Orden fijo de bloqueo: documento, periodo, cuentas, contador (ver Integridad en Postgres).
 - Sin tabla de saldos por todas las dimensiones. Los periodos abiertos se consultan desde las líneas con índice cubriente (company_id, account_id, third_party_id, date) INCLUDE (debit, credit). Al cerrar un periodo se guarda una foto de saldos que solo se recalcula al reabrir. Si la medición con datos sintéticos no alcanza la meta, se agregan saldos por cuenta y periodo.
 
 ### Idempotencia
@@ -298,6 +325,9 @@ Un objetivo de menor prioridad nunca relaja uno de mayor. Si una meta de rendimi
 - Cuadre dentro de RefreshDatabase: se inserta normal y al final se ejecuta SET CONSTRAINTS ALL IMMEDIATE, que dispara en ese momento los chequeos diferidos pendientes. Nunca al inicio del test, porque haría fallar asientos válidos insertados en varias sentencias.
 - Concurrencia (consecutivos, cierre contra contabilización) con DatabaseTruncation y conexiones separadas que hacen commit real.
 - Si la sentencia de B tiene que seguir esperando mientras A hace commit (por ejemplo, para ver que B bloquea antes de decidir), B corre en un proceso PHP aparte y la espera se confirma con pg_blocking_pids, porque PDO es síncrono y en el mismo proceso B solo puede rendirse por lock_timeout y reintentar.
+  - Lo mismo cuando A tiene que sondear los locks que B ya tomó mientras B sigue esperando otro. Un error dentro de la transacción la aborta y suelta todos sus locks antes del ROLLBACK, así que una sonda posterior al fallo de B no ve ningún lock suyo y pasa en falso.
+  - Verificado en pyme_test en el 5b.2: B toma la fila 2 FOR SHARE y cae con 55P03 en la 1; A consigue la 2 con FOR UPDATE NOWAIT sin esperar. Por eso E2 de PostingLockConcurrencyTest corre en un proceso aparte.
+  - Por la misma causa, un SET de sesión hecho dentro de una transacción abortada se deshace.
 - Mientras la contadora no entregue el catálogo, los tests usan un catálogo ficticio mínimo que no pretende ser el PUC.
 - Los casos golden viven como archivos de datos versionados (entrada, asiento esperado, estado de aprobación) que la UI muestra a la contadora.
 - Frontend: tests de componentes de los flujos de validación y de la previsualización del asiento.

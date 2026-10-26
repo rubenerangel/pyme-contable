@@ -10,6 +10,7 @@ return [
         'company_access_denied' => 'No tienes acceso a la empresa solicitada.',
         'no_active_company' => 'No hay una empresa activa. Selecciona una empresa para continuar.',
         'active_company_access_revoked' => 'No tienes acceso a la empresa activa. Selecciona otra empresa.',
+        'posting_lock_timeout' => 'Otra operación está usando los mismos datos contables. Intenta de nuevo en unos segundos.',
 
         // Generic, by exception type or HTTP status.
         'validation_failed' => 'Los datos enviados no son válidos.',

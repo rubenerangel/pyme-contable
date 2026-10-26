@@ -11,11 +11,15 @@ use LogicException;
 /**
  * Row locks on a period: shared to post into it, exclusive to close or reopen it.
  *
- * Posts share the lock and run concurrently; closing waits for them and blocks new ones until its transaction ends.
+ * Posts share the lock and run concurrently. Closing waits for the postings in progress; once it holds the lock, new
+ * postings wait until its transaction ends. While it waits, new postings can still take their FOR SHARE: no queue is
+ * guaranteed.
  * Neither method rejects a closed period: they return the status and the caller decides.
  *
- * Fixed lock order (enforced by the posting action): period first, then document counter. The reverse order could
- * deadlock against a close.
+ * Fixed lock order (enforced by the posting action, see PostingTransaction): document, period, accounts, document
+ * counter. The reverse order could deadlock against a close. A write that touches several periods must also lock them
+ * first in id order (SELECT ... ORDER BY id FOR UPDATE) or touch one row per transaction, or it can deadlock against a
+ * posting.
  */
 final class PeriodLocks
 {

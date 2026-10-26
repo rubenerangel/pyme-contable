@@ -80,6 +80,72 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
        - Pendientes de la revisión del 5b.1:
          - Especificación de Contabilizar (bloque 5): la validación diferida corre al commit con el periodo y el contador tomados. Hay que validar en PHP antes de tomar bloqueos, insertar las líneas en un INSERT multi-fila y, en importaciones, usar una transacción por documento.
          - Bloque 7: costo de cargas masivas en una transacción (cola de eventos diferidos, dos recorridos por asiento). El modo IMMEDIATE con una línea por sentencia es cuadrático; solo lo usan los tests.
+       - 5b.2. Hecho. Piezas de infraestructura para contabilizar, sin cambios de esquema:
+         - PostingTransaction (EXECUTE AROUND):
+           - exige transactionLevel 0 y lanza LogicException sin ejecutar el trabajo;
+           - abre transaction($cb, 1) con SET LOCAL lock_timeout = '5s' como primera sentencia;
+           - mapea 55P03, también al commit, a PostingLockTimeout (DomainError Conflict, 409, mensaje en lang/es/errors.php);
+           - 40P01 y lo demás salen sin cambios.
+         - AccountLocks:
+           - una sentencia `select id from account where id = any(?::bigint[]) order by id for share`;
+           - InvalidArgumentException si un id no es int;
+           - AccountNotFound si falta una cuenta o RLS la oculta.
+         - Docblocks de PostingTransaction, PeriodLocks y AccountLocks, y decisiones.md (Integridad en Postgres):
+           - el orden documento, periodo, cuentas y contador;
+           - "reverso", nunca "anulación";
+           - las escrituras de varias cuentas o periodos bloquean en orden de id;
+           - una contabilización por PostingTransaction;
+           - lock_timeout limita cada espera;
+           - no hay cola garantizada mientras el cierre o la desactivación esperan;
+           - lo verificado de DB::transaction en Laravel 13.38.0.
+         - decisiones.md (Tests): un error dentro de la transacción la aborta y suelta sus locks antes del ROLLBACK, así que una sonda posterior al fallo no ve ningún lock. Por eso E2 va en un proceso aparte.
+         - Tests:
+           - PostingTransactionTest (DatabaseTruncationAsOwner): primera sentencia y valor 0 después, resultado y rollback, 55P03, 40P01 y 23514 con una sola ejecución del trabajo, no anidar.
+           - PostingLockTimeoutTest (Unit).
+           - AccountLocksTest: faltante, otra empresa, ids repetidos e ids que no son int.
+           - PostingLockConcurrencyTest:
+             - fuera de transacción;
+             - E1, contador retenido: PostingLockTimeout entre 4.5 y 10 s, lock_timeout de sesión intacto y sin huecos;
+             - E2, orden ascendente con el hijo AccountLocksProcess / lock-accounts.php, que corre el AccountLocks real, pg_blocking_pids, orden físico invertido e index y bitmap scans apagados, con control de precondición;
+             - E3, control de la sonda;
+             - E4, un UPDATE que no cambia la clave espera: FOR SHARE y no FOR KEY SHARE.
+         - Rojos a mano. Son PHP, fuera de scripts/mutants.py, que solo aplica migraciones. Un script reemplaza el texto, corre los tests y restaura:
+
+           | Sabotaje | Lo mató |
+           |---|---|
+           | sin el SET LOCAL | D1 y E1 |
+           | SET de sesión | solo D1. E1 no puede verlo: la transacción de B aborta y el SET se deshace |
+           | sin mapeo de 55P03 | D3 y E1 |
+           | mapear también 40P01 | D4 (40P01) |
+           | transaction($cb, 3) | D4 (40P01, tres ejecuciones) |
+           | sin la guarda de transactionLevel | D6 |
+           | AccountLocks id por id en el orden de entrada | E2 |
+           | sin for share | E2, E4 y E3 |
+           | for key share | E4 |
+           | sin order by id | E2, por el NOWAIT de A, con la precondición cumplida |
+           | volver a intval sin validar | F4 |
+
+         - E2 se rehízo porque pasaba en falso. Su primera versión sondeaba en el mismo proceso después del 55P03 de B, cuando B ya no tenía ningún lock. Verificado en pyme_test con dos conexiones PDO.
+         - Auditoría, de solo lectura, de los tests de dos conexiones existentes (DocumentCounterConcurrencyTest, PeriodLocksConcurrencyTest, AccountHierarchyConcurrencyTest): ninguno sondea locks después del fallo de la conexión que esperaba. Sin pendientes.
+         - Revisores:
+           - code-reviewer, dos rondas; la segunda, sin hallazgos. Ronda 1: E2 no veía la falta de ORDER BY (corregido); intval con faltantes sobre valores crudos (corregido con is_int); 55P03 al commit sin test (descartado, es el límite de abajo).
+           - security-reviewer: sin hallazgos con ataque concreto, tres notas (abajo).
+           - performance-reviewer: ok con notas. Corregidos en docs y docblocks: 40P01 por escrituras de varias cuentas sin orden, ausencia de cola mientras el cierre espera, lock_timeout por espera y una contabilización por transacción. El resto, abajo.
+         - Límite registrado: ningún test distingue el catch alrededor de toda la transacción del catch dentro del trabajo, porque hoy ningún camino da 55P03 al commit.
+       - Pendientes de la revisión del 5b.2:
+         - 5c: el trigger del documento contabilizado y su test de concurrencia (edición del borrador frente a contabilización, proceso aparte y pg_blocking_pids).
+         - Bloque 5, acción Contabilizar:
+           - toma el documento FOR UPDATE;
+           - sus tests van con DatabaseTruncationAsOwner, porque run() no se anida;
+           - AccountNotFound no debe llegar a HTTP como 500: tomar los ids de las líneas o validar con un 422 antes de los bloqueos, y responder igual para un id ajeno y uno inexistente (security-reviewer);
+           - devolver is_active e is_postable desde AccountLocks para revalidar después de esperar (performance-reviewer);
+           - líneas en INSERT multi-fila;
+           - reverso: el perdedor de la carrera entre dos reversos del mismo original recibe 23505 por UNIQUE(company_id, reverses_document_id), y la acción lo mapea a un DomainError Conflict (409), igual que el 55P03.
+         - Con la acción de cierre o desactivación: lock_timeout y 409, y un test de tres conexiones que verifique que no hay cola mientras el FOR UPDATE espera (performance-reviewer, sin verificar). Si las contabilizaciones nuevas se adelantan al cierre que espera, bajo carga continua el cierre puede quedar con hambre de bloqueo: eso es lo que mide el test.
+         - Bloque 7 (performance-reviewer): medir con log_lock_waits si 5 s es el valor correcto, la retención del contador en asientos grandes, los multixacts y el WAL por FOR SHARE sobre cuentas calientes.
+         - El PDOException crudo del commit no pasa por QueryExceptionReporter. Hoy los mensajes del cuadre solo llevan ids. Se revisa con la primera constraint DEFERRABLE que traiga valores en el DETAIL (security-reviewer).
+         - pyme_app tiene UPDATE sobre companies.id (security-reviewer, anterior a este diff). Va como paso propio fix(db) después de mergear el 5b.2 (ver Siguiente).
+         - Extraer el harness de dos conexiones (tres copias) y el de proceso aparte (dos copias) en un paso propio de tests.
      - Abierto hasta el 5c (el 5a no se despliega solo): un documento contabilizado todavía se puede editar.
      - Pendientes de la revisión del 5a:
        - Antes del primer despliegue, con la medición del bloque 7: fecha (y quizá periodo) en la línea para el índice cubriente de reportes, derivada del asiento; hoy el auxiliar por cuenta lee todas las líneas de la cuenta y filtra la fecha al unir (decision challenge de performance-reviewer).
@@ -91,7 +157,7 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
   2. Hecho (ver Pasos del bloque 4). E1 y E2 hechos; sigue el 3.
   3. Hecho (ver Pasos del bloque 4): estructura de cuentas en 3a, 3a.1, 3a.2, 3a.3, 3b.1 y 3b.2. Sigue el 4.
   4. Hecho (ver Pasos del bloque 4): maestros en 4a y 4b.
-  5. En avance (ver Pasos del bloque 4): 5a y 5b.1 hechos; siguen 5b.2 (protocolo de bloqueo), 5c, 5d y 5e. Documentos, asientos y líneas: CHECK exclusivo, cuadre diferido, mínimo 2 líneas, inmutabilidad, reverso único, triggers de periodo y de cuenta, y el test de UPDATE y DELETE. Insumos para su plan, de la revisión de rendimiento del 3a:
+  5. En avance (ver Pasos del bloque 4): 5a, 5b.1 y 5b.2 hechos. Sigue, después de mergear el 5b.2, un paso propio fix(db): REVOKE del UPDATE de pyme_app sobre companies.id, con su test en AppPermissionsTest. Luego 5c, 5d y 5e. Documentos, asientos y líneas: CHECK exclusivo, cuadre diferido, mínimo 2 líneas, inmutabilidad, reverso único, triggers de periodo y de cuenta, y el test de UPDATE y DELETE. Insumos para su plan, de la revisión de rendimiento del 3a:
      - Orden de bloqueo con las cuentas como tercera clase: el revisor propone periodo, cuentas (ordenadas por id) y contador, para no esperar con el contador tomado, y SET LOCAL lock_timeout en Contabilizar. Cambia el orden de decisiones.md (Integridad), lo decide Rubén en ese plan.
      - Cada FK hacia account con su índice que empiece por (company_id, account_id), en la misma migración, y un test de catálogo que lo exija.
      - Evaluar si sobra la FK directa a companies en tablas que ya tienen una FK compuesta hacia una tabla de la empresa.
