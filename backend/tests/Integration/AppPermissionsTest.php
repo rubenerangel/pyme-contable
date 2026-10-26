@@ -35,30 +35,34 @@ uses(RefreshDatabaseAsOwner::class);
 // audit_probe is a tests-only table (backend/tests/database/migrations): it exists in public only during the tests. It
 // is the template of the audited tables, so it is no laxer than they are: no table-level INSERT or UPDATE, and column
 // privileges only on label.
+// No table has UPDATE on a primary key column, except cache.key (see PRIMARY_KEY_COLUMNS_ALLOWED_TO_UPDATE). So the
+// global Laravel tables (companies, company_user, users, sessions, jobs, job_batches, failed_jobs,
+// password_reset_tokens, cache_locks) have no table-level UPDATE either: their updatable columns are declared in
+// EXPECTED_COLUMN_UPDATES, and company_user has no UPDATE of any kind. Only cache keeps table-level UPDATE.
 const EXPECTED_TABLE_PRIVILEGES = [
     'account' => ['DELETE', 'SELECT'],
     'audit_log' => ['SELECT'],
     'audit_probe' => ['DELETE', 'SELECT'],
     'cache' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
-    'cache_locks' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
-    'companies' => ['INSERT', 'SELECT', 'UPDATE'],
-    'company_user' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'cache_locks' => ['DELETE', 'INSERT', 'SELECT'],
+    'companies' => ['INSERT', 'SELECT'],
+    'company_user' => ['DELETE', 'INSERT', 'SELECT'],
     'construction_project' => ['DELETE', 'SELECT'],
     'cost_center' => ['DELETE', 'SELECT'],
     'document' => ['DELETE', 'SELECT'],
     'document_counter' => ['SELECT'],
     'document_type' => ['SELECT'],
-    'failed_jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
-    'job_batches' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
-    'jobs' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'failed_jobs' => ['DELETE', 'INSERT', 'SELECT'],
+    'job_batches' => ['DELETE', 'INSERT', 'SELECT'],
+    'jobs' => ['DELETE', 'INSERT', 'SELECT'],
     'journal_entry' => ['SELECT'],
     'journal_entry_line' => ['SELECT'],
     'municipality' => ['SELECT'],
-    'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'password_reset_tokens' => ['DELETE', 'INSERT', 'SELECT'],
     'period' => ['SELECT'],
-    'sessions' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'sessions' => ['DELETE', 'INSERT', 'SELECT'],
     'third_party' => ['DELETE', 'SELECT'],
-    'users' => ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+    'users' => ['DELETE', 'INSERT', 'SELECT'],
 ];
 
 // Complete map of every table in public (except migrations) on which pyme_app has no table-level INSERT to the columns
@@ -123,7 +127,8 @@ const TABLES_ALLOWED_TO_INSERT_ID_OR_COMPANY_ID = [
 
 // Complete map of every table in public (except migrations) on which pyme_app has no table-level UPDATE to the columns
 // where it has UPDATE (column privilege), in alphabetical order. A new table without table-level UPDATE must be
-// declared here, even if its list is empty.
+// declared here, even if its list is empty. No primary key column is listed (see PRIMARY_KEY_COLUMNS_ALLOWED_TO_UPDATE);
+// company_user has no UPDATE of any kind: a membership is replaced (DELETE and INSERT), never edited.
 const EXPECTED_COLUMN_UPDATES = [
     'account' => [
         'code',
@@ -140,15 +145,33 @@ const EXPECTED_COLUMN_UPDATES = [
     ],
     'audit_log' => [],
     'audit_probe' => ['label'],
+    'cache_locks' => ['expiration', 'owner'],
+    'companies' => ['name', 'updated_at'],
+    'company_user' => [],
     'construction_project' => ['code', 'is_active', 'name'],
     'cost_center' => ['code', 'is_active', 'name'],
     'document' => ['description', 'document_date', 'document_type_id', 'reverses_document_id'],
     'document_counter' => ['last_number'],
     'document_type' => ['name'],
+    'failed_jobs' => ['connection', 'exception', 'failed_at', 'payload', 'queue', 'uuid'],
+    'job_batches' => [
+        'cancelled_at',
+        'created_at',
+        'failed_job_ids',
+        'failed_jobs',
+        'finished_at',
+        'name',
+        'options',
+        'pending_jobs',
+        'total_jobs',
+    ],
+    'jobs' => ['attempts', 'available_at', 'created_at', 'payload', 'queue', 'reserved_at'],
     'journal_entry' => [],
     'journal_entry_line' => [],
     'municipality' => [],
+    'password_reset_tokens' => ['created_at', 'token'],
     'period' => ['status'],
+    'sessions' => ['ip_address', 'last_activity', 'payload', 'user_agent', 'user_id'],
     'third_party' => [
         'business_name',
         'country',
@@ -161,6 +184,14 @@ const EXPECTED_COLUMN_UPDATES = [
         'person_type',
         'second_surname',
     ],
+    'users' => ['created_at', 'email', 'email_verified_at', 'name', 'password', 'remember_token', 'updated_at'],
+];
+
+// Primary key columns (table.column) of public tables on which pyme_app may have UPDATE, each for its own reason.
+const PRIMARY_KEY_COLUMNS_ALLOWED_TO_UPDATE = [
+    // DatabaseStore::putMany calls upsert($values, 'key') without $update, and the query builder then generates
+    // ON CONFLICT (key) DO UPDATE SET key = excluded.key, ... : without UPDATE on key the cache fails with 42501.
+    'cache.key',
 ];
 
 const TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'];
@@ -346,6 +377,112 @@ it('pyme_app cannot insert id or company_id on any public table with a company_i
     }
 
     $this->assertSame([], $actual, 'Table.column pairs where pyme_app can insert id or company_id and must not.');
+});
+
+it('pyme_app has no UPDATE on any primary key column of a public table, except the declared ones', function (): void {
+    $primaryKeyColumns = <<<'SQL'
+        select c.relname || '.' || a.attname as pair, has_column_privilege('pyme_app', c.oid, a.attnum, 'UPDATE') as can_update
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        join pg_index i on i.indrelid = c.oid and i.indisprimary
+        join pg_attribute a on a.attrelid = c.oid and a.attnum = any(i.indkey)
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+        order by c.relname, a.attname
+        SQL;
+    $rows = DB::select($primaryKeyColumns);
+
+    // Guard against passing on an empty result: the query must see the primary keys this rule is about.
+    $all = array_column($rows, 'pair');
+    foreach (['account.id', 'companies.id', 'company_user.company_id', 'company_user.user_id', 'users.id'] as $pair) {
+        $this->assertContains($pair, $all, "The catalog query must find $pair among the primary key columns.");
+    }
+
+    $actual = [];
+    foreach ($rows as $row) {
+        if ($row->can_update) {
+            $actual[] = $row->pair;
+        }
+    }
+    sort($actual);
+
+    // assertSame in both directions: a new offender fails, and so does an exception that is no longer needed.
+    $this->assertSame(
+        PRIMARY_KEY_COLUMNS_ALLOWED_TO_UPDATE,
+        $actual,
+        'Table.column primary key pairs where pyme_app has UPDATE (table or column privilege). Only the declared exceptions are allowed.',
+    );
+});
+
+// One statement per test: a SQL error aborts the transaction of RefreshDatabase. The row exists, so the UPDATE reaches the
+// privilege check on a real row. The message tells a missing privilege apart from the other 42501 causes (RLS).
+it('does not let pyme_app update a primary key column (no UPDATE privilege on the column, SQLSTATE 42501)', function (string $table, string $column): void {
+    $company = Company::factory()->create();
+    $user = User::factory()->create();
+    DB::table('company_user')->insert([
+        'company_id' => $company->id,
+        'user_id' => $user->id,
+        'role' => 'admin',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // The new value is the current one: the only reason to fail is the privilege on the column.
+    $current = match ("$table.$column") {
+        'companies.id', 'company_user.company_id' => $company->id,
+        'company_user.user_id', 'users.id' => $user->id,
+    };
+    $where = match ($table) {
+        'companies' => ['id' => $company->id],
+        'users' => ['id' => $user->id],
+        'company_user' => ['company_id' => $company->id, 'user_id' => $user->id],
+    };
+
+    SqlAssertions::expectRejected(
+        fn () => DB::table($table)->where($where)->update([$column => $current]),
+        '42501',
+        message: 'permission denied for table',
+    );
+})->with([
+    'companies.id' => ['companies', 'id'],
+    'company_user.company_id' => ['company_user', 'company_id'],
+    'company_user.user_id' => ['company_user', 'user_id'],
+    'users.id' => ['users', 'id'],
+]);
+
+it('lets pyme_app update the name of a company and moves updated_at', function (): void {
+    $company = Company::factory()->create(['name' => 'Before']);
+    DB::table('companies')->where('id', $company->id)->update(['updated_at' => '2020-01-01 00:00:00']);
+    $company->refresh();
+
+    $company->name = 'After';
+    $company->save();
+
+    $stored = DB::table('companies')->where('id', $company->id)->first();
+    $this->assertSame('After', $stored->name, 'The name must be updated as pyme_app.');
+    $this->assertNotSame('2020-01-01 00:00:00', substr((string) $stored->updated_at, 0, 19), 'updated_at must change with the save.');
+});
+
+it('lets pyme_app update the name of a user', function (): void {
+    $user = User::factory()->create(['name' => 'Before']);
+
+    $user->name = 'After';
+    $user->save();
+
+    $this->assertSame('After', DB::table('users')->where('id', $user->id)->value('name'), 'The name must be updated as pyme_app.');
+});
+
+it('lets pyme_app update the remember token of a user', function (): void {
+    $user = User::factory()->create();
+
+    $user->setRememberToken('remember-token-0123456789');
+    $user->save();
+
+    $this->assertSame(
+        'remember-token-0123456789',
+        DB::table('users')->where('id', $user->id)->value('remember_token'),
+        'The remember token must be updated as pyme_app.',
+    );
 });
 
 it('pyme_app has no privileges on the municipality sequence', function (): void {
