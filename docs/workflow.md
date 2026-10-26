@@ -20,7 +20,7 @@ Tres roles de construcción y tres revisores en Claude Code. Rubén aprueba plan
 5. Si el plan lo pide, los revisores revisan el diff en verde. El arquitecto decide qué hallazgos se corrigen en el paso, cuáles se registran como pendientes en docs/estado.md y cuáles se descartan con motivo. Lo que se corrige vuelve por tester y coder.
 6. El arquitecto revisa el diff contra el plan y CLAUDE.md, corre la suite completa y rompe a mano cada invariante nueva para ver el test en rojo.
 7. Antes del commit, si el diff lo pide y `code-reviewer` no corrió en el paso 5, el arquitecto corre /code-review sobre el diff a commitear (ver Revisión de corrección antes del commit). Sus hallazgos siguen la misma regla del paso 5: se corrigen vía tester y coder, se registran como pendientes o se descartan con motivo.
-8. El arquitecto muestra un resumen, con los hallazgos de los revisores y de la revisión de corrección y qué se hizo con cada uno. Con el OK de Rubén hace el commit, que incluye docs/estado.md si cierra un paso. Push solo si Rubén lo pide.
+8. El arquitecto muestra un resumen, con los hallazgos de los revisores y de la revisión de corrección y qué se hizo con cada uno. Con el OK de Rubén hace el commit, que incluye docs/estado.md si cierra un paso. Push solo si Rubén lo pide. Cada paso va en su propia rama y entra a main, que está protegida, por PR.
 
 ## Revisores
 
@@ -29,7 +29,7 @@ Tres roles de construcción y tres revisores en Claude Code. Rubén aprueba plan
 - `performance-reviewer` cuando el paso toca: consultas sobre tablas que crecen (documentos, asientos, líneas, bitácora), índices, bloqueos o transacciones, triggers por fila, jobs masivos, listados o reportes. Además en la medición del bloque 7.
 - Ningún revisor corre en pasos solo de docs o de configuración sin impacto en esos temas.
 - Contexto limpio: los revisores se invocan por nombre de agente, nunca como fork, porque un fork hereda toda la conversación. A `code-reviewer` se le delega solo "Revisa el diff sin commitear según tu definición", sin plan, especificación ni intención del código. A los otros dos se les puede dar el alcance del paso.
-- En paralelo: los revisores pueden correr a la vez en segundo plano. Mientras corren, nadie ejecuta la suite de tests ni migraciones, porque comparten pyme_test y la base de desarrollo. El arquitecto corre la suite en verde antes de lanzarlos.
+- En paralelo: los revisores pueden correr a la vez en segundo plano. Mientras corren, nadie ejecuta la suite de tests ni migraciones, porque comparten pyme_test y la base de desarrollo. El arquitecto corre la suite completa en verde antes de lanzarlos; los revisores no la corren.
 - Prioridad cuando chocan: el orden de [decisiones.md](decisiones.md), sección Trade-offs. Un hallazgo de rendimiento nunca relaja una invariante de CLAUDE.md. Un hallazgo que contradice docs/decisiones.md llega como "decision challenge" y lo decide Rubén.
 - Los modelos van fijados por id (claude-opus-5-5) y se actualizan a mano al cambiar de versión. El revisor de código usa un modelo distinto del coder a propósito.
 
@@ -48,15 +48,27 @@ Tres roles de construcción y tres revisores en Claude Code. Rubén aprueba plan
   - Desde la segunda ronda, solo se corrige lo de la primera lista. Casos futuros hipotéticos, estilo, limpieza y refactor van a pendientes o se descartan, sin abrir otra ronda.
 - Una ronda nueva solo corre si las correcciones cambiaron comportamiento (código, SQL o lógica de un test), con el mismo revisor y solo sobre el delta de esas correcciones, no sobre todo el diff.
 - Si tras dos rondas siguen saliendo hallazgos de la primera lista, el arquitecto para y le explica el bloqueo a Rubén, igual que tras 2 rondas del coder sin verde.
+- Excepción registrada: en G1 y G4 (hook de roles) Rubén autorizó una tercera ronda, solo con security-reviewer y solo sobre el delta, porque las correcciones de cada ronda abrían huecos nuevos en el mismo mecanismo (la lista permitida de psql y el filtro de .env). Con límite fijado antes de lanzarla: un hueco más en la lista permitida no se parchea, se registra y se reemplaza el psql libre por un script fijo.
 
 ## Reglas
 
 - Mismo árbol de trabajo, un agente que escribe a la vez. Compose monta ./backend y ./db, así que un worktree aparte necesitaría su propio stack. Los revisores no escriben y pueden correr en paralelo según la sección Revisores.
 - Escalamiento: si el coder cree que un test está mal, lo reporta y no lo toca. El arquitecto corrige la especificación o pide al tester que corrija. Tras 2 rondas sin verde, el arquitecto para y le explica el bloqueo a Rubén.
-- Comandos de los agentes: tests, lint y typecheck vía docker compose o npmd, lectura, git diff y git status. Los agentes no tienen el alias npmd (vive en el ~/.bashrc de Rubén): usan el docker run equivalente de [entorno.md](entorno.md) sin -it. Los revisores de seguridad y rendimiento además pueden correr composer audit, npm audit, consultas de catálogo y sondas como pyme_app dentro de BEGIN y ROLLBACK, nunca con commit. El revisor de código solo usa git y lectura.
+- Comandos de los agentes: tests, lint y typecheck vía docker compose o npmd, lectura, git diff y git status. Los agentes no tienen el alias npmd (vive en el ~/.bashrc de Rubén): usan el docker run equivalente de [entorno.md](entorno.md) sin -it. Los revisores no corren tests. Los de seguridad y rendimiento pueden correr composer audit, npm audit y psql como pyme_app con -v ON_ERROR_STOP=1, con todo SQL (también las lecturas) dentro de BEGIN y ROLLBACK, nunca con commit, y solo los meta-comandos \d*, \x y \echo. El SQL que escribe solo va contra pyme_test; pyme queda de solo lectura. El revisor de código solo usa git de lectura y lectura de archivos.
 - Solo el arquitecto, con OK de Rubén: git commit y push, docker compose down -v, instalar dependencias (composer require, npm install) y cambios de entorno (.env, volúmenes).
 - Context7: cada agente consulta la versión del lock antes de usar una API de librería e indica en una línea qué consultó. Si no está, lo dice y marca el código como no verificado.
 - Reporte final de cada agente: archivos tocados, comandos con su resultado, lo verificado y lo supuesto. Los revisores además: veredicto y hallazgos con severidad y evidencia.
 - Revisión: la hace el arquitecto, con los reportes de los revisores cuando el plan los pide, y la revisión de corrección antes del commit cuando el diff lo pide (`code-reviewer` o /code-review, ver su sección).
 - Patrones: el plan y la especificación nombran en MAYÚSCULAS el patrón de cada pieza, por qué y la alternativa descartada, o dicen que no hace falta. El coder aplica solo los que pide la especificación y los nombra en su reporte. La revisión del arquitecto incluye buscar sobreingeniería: una abstracción sin un segundo caso real se quita.
-- Las restricciones de comandos de los agentes son por instrucción. Los permisos efectivos son los de la sesión: disallowedTools quita Edit y Write a los revisores, pero Bash sigue disponible.
+- Las restricciones por rol ya no son solo instrucción: las impone el hook [.claude/hooks/role_guard.py](../.claude/hooks/role_guard.py), un PreToolUse sobre Edit, Write, MultiEdit, NotebookEdit y Bash que decide por agent_type. Para tester y coder es una baranda contra errores (rutas y comandos prohibidos); para los revisores y cualquier otro subagente es barrera, por lista permitida. Cualquier agente con acceso a docker es root en los contenedores, así que el hook no es un sandbox (ver [decisiones.md](decisiones.md), Trade-offs). Si bloquea algo que el paso necesita, el agente se detiene y se lo pide al arquitecto.
+- Los revisores declaran `tools` como lista permitida (Read, Grep, Glob, Bash y Context7), igual que tester y coder: no heredan herramientas de red ni MCP de salida.
+- La sesión principal no pasa por el hook: sus comandos de riesgo piden confirmación por permissions.ask en [.claude/settings.json](../.claude/settings.json), que además niega leer los .env.
+
+## CI
+
+[.github/workflows/ci.yml](../.github/workflows/ci.yml) corre en cada PR y en cada push a main, con actions e imágenes de herramientas fijadas por SHA o digest:
+
+- backend: build de la imagen, Postgres con el mismo init, composer install, composer audit y Pest.
+- frontend: npm ci, npm audit --audit-level=high, lint, typecheck, test y build.
+- guards: tests del hook y JSON válido en .claude/settings.json. El hook es un control de seguridad y sus tests corren como cualquier otro.
+- infra: actionlint sobre los workflows, hadolint sobre docker/php/Dockerfile y docker compose config.

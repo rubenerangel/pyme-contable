@@ -53,6 +53,14 @@ npmd npm install -D <paquete>
 
 Nunca `npm` suelto: en WSL resuelve al npm de Windows.
 
+## Hook de agentes
+
+```bash
+python3 -m unittest discover -s .claude/hooks -v
+```
+
+Corre con el python3 de WSL (ver [entorno.md](entorno.md)), no en un contenedor. Para ver una regla en rojo, quítala de role_guard.py y vuelve a correr.
+
 ## Base de datos
 
 - `pyme`: desarrollo. `pyme_test`: tests, forzada en phpunit.xml.

@@ -2,3 +2,5 @@
 .DS_Store
 .idea/
 .vscode/
+# Python bytecode from .claude/hooks tests
+__pycache__/

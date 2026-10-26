@@ -1,6 +1,8 @@
 # PHP 8.4: current Pest requires it. Adjust if composer.lock asks for another.
 FROM php:8.4-fpm-bookworm
 
+# apt versions are unpinned on purpose: bookworm mirrors drop superseded versions after security updates, so pins would break builds and delay patches. Reproducibility comes from the base image (pin by digest pending).
+# hadolint ignore=DL3008
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libpq-dev libicu-dev libzip-dev libgmp-dev unzip git \
  && docker-php-ext-install -j"$(nproc)" pdo_pgsql intl zip bcmath gmp opcache \

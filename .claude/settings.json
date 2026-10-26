@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(docker compose down)",
+      "Bash(docker compose down *)",
+      "Bash(docker volume rm *)",
+      "Bash(docker volume prune)",
+      "Bash(docker volume prune *)",
+      "Bash(docker system prune)",
+      "Bash(docker system prune *)",
+      "Bash(* composer require *)",
+      "Bash(* composer remove *)",
+      "Bash(* composer update *)",
+      "Bash(* composer update)",
+      "Bash(* npm install)",
+      "Bash(* npm install *)",
+      "Bash(* npm uninstall *)",
+      "Bash(* npm update *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./backend/.env)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/role_guard.py\" || exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}
