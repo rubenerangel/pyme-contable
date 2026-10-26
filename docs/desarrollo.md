@@ -74,3 +74,16 @@ Corre con el python3 de WSL (ver [entorno.md](entorno.md)), no en un contenedor.
 
 Conventional Commits: `tipo(alcance): descripción`. Ver [CLAUDE.md](../CLAUDE.md).
 El commit que cierra un paso actualiza [estado.md](estado.md).
+
+### Ramas y PR
+
+- `main` solo avanza por PR con squash y los checks `backend`, `frontend`, `guards` e `infra` en verde. No se hace commit directo en `main`.
+- Cada paso va en su propia rama, creada desde GitHub y no desde el `main` local:
+
+  ```bash
+  git fetch origin
+  git switch -c <tipo>/<paso> origin/main
+  ```
+
+- Después del merge: `git switch main && git pull`. El repo tiene `pull.ff only`, así que si `main` local diverge, `git pull` falla en vez de mezclar. Revisa la divergencia con `git log --oneline origin/main..main` antes de tocar nada.
+- Un commit que quedó sin subir en `main` local entra escondido en el siguiente squash. Así pasó con los pasos 4 y 5 del bloque 4 en el PR #2; los commits originales están en la etiqueta `bloque-4-pasos-4-5`.
