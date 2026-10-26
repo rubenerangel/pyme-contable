@@ -5,7 +5,10 @@
 Each case builds a throwaway tree and replaces Pest with a fake, so it needs
 neither Docker nor the real tests. Every failure asserts part of its message.
 """
+import contextlib
+import io
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -19,18 +22,24 @@ ACCOUNT = "backend/tests/Integration/AccountTest.php"
 KILL = ACCOUNT + "::it isolates by company"
 OTHER = ACCOUNT + "::it rejects a bad code"
 ROLES = "backend/tests/Integration/DatabaseRolesTest.php"
+TENANT = "backend/tests/Integration/TenantIsolationTest.php"
+TENANT_KILL = TENANT + "::it rejects a move"
 FEATURE = "backend/tests/Feature/AccountApiTest.php"
 
 
 class FakePest(object):
-    """statuses is {mutation or None: {id: status}}; calls records (mutation, files)."""
+    """statuses is {mutation or None: {id: status}}; raises is {mutation or None: exception};
+    calls records (mutation, files)."""
 
-    def __init__(self, statuses):
+    def __init__(self, statuses, raises=None):
         self.statuses = statuses
+        self.raises = raises or {}
         self.calls = []
 
     def __call__(self, root, mutation, files):
         self.calls.append((mutation, list(files)))
+        if mutation in self.raises:
+            raise self.raises[mutation]
         found = self.statuses.get(mutation, {mutants.APPLIED_ID: gate.PASSED})
         return [gate.Result(i, s, "boom" if s == gate.FAILED else "") for i, s in found.items()]
 
@@ -41,6 +50,7 @@ class Base(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root)
         self.write(ACCOUNT, "<?php\nuses(RefreshDatabaseAsOwner::class);\n")
         self.write(ROLES, "<?php\n// Catalogs only: no RefreshDatabase.\n")
+        self.write(TENANT, "<?php\nuses(DatabaseTruncationAsOwner::class);\n")
         self.write(FEATURE, "<?php\n")
         self.write(mutants.APPLIED_FILE, "<?php\n")
 
@@ -106,6 +116,12 @@ class LoadTest(Base):
     def test_test_without_owner_trait(self):
         self.assertRejected("m", "// kills: %s::it x" % ROLES, "does not use")
 
+    def test_indented_kills_line(self):
+        self.assertRejected("m", "  // kills: %s" % KILL, "m: malformed kills line")
+
+    def test_empty_kills_line(self):
+        self.assertRejected("m", "// kills: %s\n// kills:" % KILL, "m: malformed kills line")
+
 
 class RunTest(Base):
     def setUp(self):
@@ -113,10 +129,11 @@ class RunTest(Base):
         self.mutation("no_force", "// kills: %s" % KILL)
         self.mutation("_noop", "// control: survives\n// kills: %s" % KILL)
 
-    def statuses(self, applied=gate.PASSED, kill=gate.FAILED, control=gate.PASSED):
+    def statuses(self, applied=gate.PASSED, kill=gate.FAILED, control=gate.PASSED, restore_kill=gate.PASSED):
         return {
             "no_force": {mutants.APPLIED_ID: applied, KILL: kill, OTHER: gate.PASSED},
             "_noop": {mutants.APPLIED_ID: gate.PASSED, KILL: control},
+            None: {mutants.APPLIED_ID: gate.PASSED, KILL: restore_kill, OTHER: gate.PASSED},
         }
 
     def test_all_as_expected(self):
@@ -125,7 +142,7 @@ class RunTest(Base):
         self.assertIn("KILLED no_force\n  killed by %s: boom" % KILL, out)
         self.assertIn("CONTROL _noop", out)
         self.assertIn("2 mutations, all as expected", out)
-        self.assertEqual(pest.calls, [("_noop", [ACCOUNT]), ("no_force", [ACCOUNT]), (None, [])])
+        self.assertEqual(pest.calls, [("_noop", [ACCOUNT]), ("no_force", [ACCOUNT]), (None, [ACCOUNT])])
 
     def test_survivor_fails(self):
         with self.assertRaisesRegex(gate.GateError, "SURVIVED %s \\(passed\\)" % KILL):
@@ -160,13 +177,58 @@ class RunTest(Base):
         pest = FakePest(statuses)
         with self.assertRaisesRegex(gate.GateError, "(?s)control killed.*SURVIVED"):
             mutants.run(self.root, [], pest)
-        self.assertEqual(pest.calls[-1], (None, []))
+        self.assertEqual(pest.calls[-1], (None, [ACCOUNT]))
 
     def test_failed_restore_fails(self):
         statuses = self.statuses()
         statuses[None] = {mutants.APPLIED_ID: gate.FAILED}
         with self.assertRaisesRegex(gate.GateError, "restore: MutationAppliedTest did not pass"):
             mutants.run(self.root, [], FakePest(statuses))
+
+    def test_restore_runs_the_union_of_killer_files(self):
+        self.mutation("two", "// kills: %s\n// kills: %s" % (TENANT_KILL, KILL))
+        statuses = self.statuses()
+        statuses["two"] = {mutants.APPLIED_ID: gate.PASSED, KILL: gate.FAILED, TENANT_KILL: gate.FAILED}
+        statuses[None][TENANT_KILL] = gate.PASSED
+        pest = FakePest(statuses)
+        mutants.run(self.root, [], pest)
+        self.assertEqual(pest.calls[-1], (None, [ACCOUNT, TENANT]))
+
+    def test_killer_failing_without_mutation_fails_once(self):
+        pest = FakePest(self.statuses(restore_kill=gate.FAILED))
+        with self.assertRaisesRegex(gate.GateError, re.escape(
+                "restore: killer fails without mutation "
+                "(flaky, or a mutation left an object migrate:fresh does not drop): " + KILL)) as cm:
+            mutants.run(self.root, [], pest)
+        # no_force and _noop both list KILL: it is checked once.
+        self.assertEqual(str(cm.exception).count("killer fails without mutation"), 1)
+
+    def test_killer_not_run_in_restore_fails(self):
+        statuses = self.statuses()
+        del statuses[None][KILL]
+        with self.assertRaisesRegex(gate.GateError, re.escape("restore: not run: " + KILL)):
+            mutants.run(self.root, ["no_force"], FakePest(statuses))
+
+    def test_restore_failure_adds_to_the_other_failures(self):
+        pest = FakePest(self.statuses(kill=gate.PASSED, restore_kill=gate.FAILED))
+        with self.assertRaisesRegex(gate.GateError, "(?s)SURVIVED.*restore: killer fails without mutation"):
+            mutants.run(self.root, ["no_force"], pest)
+
+    def test_interrupt_restores_and_propagates(self):
+        pest = FakePest(self.statuses(), raises={"no_force": KeyboardInterrupt()})
+        with self.assertRaises(KeyboardInterrupt):
+            mutants.run(self.root, [], pest)
+        self.assertEqual(pest.calls[-1], (None, [ACCOUNT]))
+
+    def test_exception_with_a_failed_restore_prints_it_and_propagates_the_exception(self):
+        statuses = self.statuses()
+        statuses[None] = {mutants.APPLIED_ID: gate.FAILED}
+        pest = FakePest(statuses, raises={"no_force": OSError("docker gone")})
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaisesRegex(OSError, "docker gone"):
+            mutants.run(self.root, [], pest)
+        self.assertIn("restore: MutationAppliedTest did not pass", err.getvalue())
+        self.assertEqual(pest.calls[-1], (None, [ACCOUNT]))
 
     def test_invalid_mutation_fails_before_running_anything(self):
         pest = FakePest(self.statuses())
@@ -184,7 +246,9 @@ class CommandTest(unittest.TestCase):
     def test_sets_mutation_and_runs_the_applied_test_first(self):
         cmd = mutants.pest_command("no_force", [ACCOUNT])
         self.assertEqual(cmd[:4], ["docker", "compose", "-f", "compose.yaml"])
-        self.assertIn("MUTATION=no_force", cmd)
+        # Options after the service name would reach Pest instead of docker compose.
+        self.assertEqual(cmd[cmd.index("-e") + 1], "MUTATION=no_force")
+        self.assertLess(cmd.index("-e"), cmd.index("php"))
         start = cmd.index("vendor/bin/pest") + 1
         self.assertEqual(cmd[start:start + 2],
                          ["tests/Integration/MutationAppliedTest.php", "tests/Integration/AccountTest.php"])

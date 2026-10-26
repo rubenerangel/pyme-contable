@@ -18,7 +18,11 @@ For each mutation the runner runs MutationAppliedTest (first, so it migrates
 with the mutation before anything else) plus the files of the listed tests,
 and requires MutationAppliedTest to pass: a mutation whose SQL fails would
 otherwise error every test and count as killed. At the end it migrates again
-without MUTATION, so no mutated schema is left in pyme_test.
+without MUTATION, so no mutated schema is left in pyme_test, and requires every
+listed test to pass there: one that fails without its mutation is flaky, or a
+mutation left an object migrate:fresh does not drop. That restore also runs
+after Ctrl-C or any other exception, as one more docker compose run. A Ctrl-C
+during a restore cuts it, the final one included: nothing restores again.
 
 Mutations that need a superuser (GRANT ON PARAMETER, ALTER ROLE of another
 role, ALTER DATABASE) cannot go here: migrations run as pyme_owner.
@@ -82,6 +86,8 @@ def load(root, name):
             match = KILLS.match(line)
             if match:
                 kills.append(match.group(1).rstrip())
+            elif "kills:" in line:
+                raise gate.GateError("%s: malformed kills line: %s" % (name, line.strip()))
             elif line.strip() == CONTROL:
                 control = True
     if not kills:
@@ -151,22 +157,51 @@ def check(mutation, results):
     return lines
 
 
+def restore(root, mutations, pest):
+    """Migrate without MUTATION and require every listed test green, or raise."""
+    files, kills = [], []
+    for m in mutations:
+        files += [f for f in m.files() if f not in files]
+        kills += [t for t in m.kills if t not in kills]
+    by_id = gate.index(pest(root, None, files))
+    _applied(by_id, "restore")
+    problems = []
+    for test_id in kills:
+        r = by_id.get(test_id)
+        if r is None:
+            problems.append("restore: not run: %s" % test_id)
+        elif r.status != gate.PASSED:
+            problems.append("restore: killer fails without mutation "
+                            "(flaky, or a mutation left an object migrate:fresh does not drop): %s" % test_id)
+    if problems:
+        raise gate.GateError("\n".join(problems))
+
+
 def run(root, names, pest=docker_pest):
     names = list(names) or discover(root)
     if not names:
         raise gate.GateError("no mutations in %s" % MUTATIONS)
     mutations = [load(root, n) for n in names]
     report, failures = [], []
-    for m in mutations:
+    try:
+        for m in mutations:
+            try:
+                lines = check(m, pest(root, m.name, m.files()))
+                report.append("%s %s" % ("CONTROL" if m.control else "KILLED", m.name))
+                report += lines
+            except gate.GateError as exc:
+                failures.append(str(exc))
+    except BaseException:
+        # Ctrl-C or a crash mid-mutation: restore anyway. The original exception wins over a
+        # GateError of the restore; any other exception of the restore replaces it.
         try:
-            lines = check(m, pest(root, m.name, m.files()))
-            report.append("%s %s" % ("CONTROL" if m.control else "KILLED", m.name))
-            report += lines
+            restore(root, mutations, pest)
         except gate.GateError as exc:
-            failures.append(str(exc))
+            print("MUTANTS RESTORE FAILED\n%s" % exc, file=sys.stderr)
+        raise
     # Leave pyme_test as a normal run expects it, also after a failed mutation.
     try:
-        _applied(gate.index(pest(root, None, [])), "restore")
+        restore(root, mutations, pest)
     except gate.GateError as exc:
         failures.append(str(exc))
     if failures:
