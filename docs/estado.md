@@ -97,6 +97,7 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
     - Tras un Ctrl-C o una excepción a mitad de corrida no se imprimen los failures ni el report acumulados: solo sale el traceback.
     - Un killer SKIPPED en la restauración se reporta como "killer fails without mutation"; el mensaje debería llevar el status.
     - Un SIGINT solo al proceso Python (kill -INT <pid>, no al grupo) hace que subprocess.call mate el cliente de docker compose; el contenedor mutado podría seguir vivo mientras corre la restauración. Inferido, sin verificar. Un Ctrl-C de terminal va al grupo y ese caso está verificado.
+  - G5. Hecho, en la rama docs/g5-retire-code-review. /code-review sale de workflow.md: un diff con lógica lo revisa `code-reviewer`; uno que se ejecuta sin lógica (configuración, infraestructura, CI, lockfiles), los checks de CI de G4 más `security-reviewer` según su lista. El título del PR sigue Conventional Commits porque el squash lo usa como mensaje en main (el de G3 entró como "Infra/g3 mutations (#6)"; main protegida, no se reescribe).
   - Pendientes de G2:
     - Commit rojo en la rama verificado por CI, si un agente llega a reescribir .gate/red.json (ver decisiones.md, Trade-offs).
     - protected_hashes y changed_protected usan --exclude-standard: un archivo protegido que quede en gitignore (frontend/.gitignore ignora logs sin anclar) no se hashea. Hoy no hay casos; se revisa con el primer test bajo una ruta ignorada.
@@ -105,7 +106,6 @@ Después: CxC y CxP, tesorería, costos por obra, captura de facturas por foto d
     - El tester puede escribir compose.override.yaml por Bash: TESTER_PROTECTED solo cubre compose.yaml. No afecta al gate (-f compose.yaml), sí a los docker compose run del paso.
     - Fijar como fixture de test_gate.py el XML real de Vitest con un import roto, un beforeAll que lanza y una promesa sin manejar. El formato que asume not_a_test ya se verificó en el código instalado de Vitest 5.0.5.
   - Pendientes de G1 y G4:
-    - G5: retirar /code-review. Siguiente.
     - Fijar por digest php:8.4-fpm-bookworm y composer:2 en docker/php/Dockerfile.
     - Migraciones inmutables desde el primer despliegue.
     - npm ci --ignore-scripts en CI, tras comprobar que el build no necesita esos scripts.

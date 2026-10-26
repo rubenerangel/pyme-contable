@@ -19,8 +19,8 @@ Tres roles de construcción y tres revisores en Claude Code. Rubén aprueba plan
 4. El coder implementa hasta verde. Nunca edita tests. El arquitecto lo confirma con `python3 scripts/gate.py green`.
 5. Si el plan lo pide, los revisores revisan el diff en verde. El arquitecto decide qué hallazgos se corrigen en el paso, cuáles se registran como pendientes en docs/estado.md y cuáles se descartan con motivo. Lo que se corrige vuelve por tester y coder, y cada ronda repite red y green.
 6. El arquitecto revisa el diff contra el plan y CLAUDE.md, corre la suite completa y rompe a mano cada invariante nueva para ver el test en rojo.
-7. Antes del commit, si el diff lo pide y `code-reviewer` no corrió en el paso 5, el arquitecto corre /code-review sobre el diff a commitear (ver Revisión de corrección antes del commit). Sus hallazgos siguen la misma regla del paso 5: se corrigen vía tester y coder, se registran como pendientes o se descartan con motivo.
-8. El arquitecto muestra un resumen, con los hallazgos de los revisores y de la revisión de corrección y qué se hizo con cada uno. Con el OK de Rubén hace el commit, que incluye docs/estado.md si cierra un paso y scripts/gate-baseline.txt si green lo actualizó. Push solo si Rubén lo pide. Cada paso va en su propia rama y entra a main, que está protegida, por PR.
+7. Antes del commit, si el diff tiene lógica y `code-reviewer` no corrió en el paso 5, el arquitecto lo corre sobre el diff a commitear (ver Revisión de corrección antes del commit). Sus hallazgos siguen la misma regla del paso 5: se corrigen vía tester y coder, se registran como pendientes o se descartan con motivo.
+8. El arquitecto muestra un resumen, con los hallazgos de los revisores y de la revisión de corrección y qué se hizo con cada uno. Con el OK de Rubén hace el commit, que incluye docs/estado.md si cierra un paso y scripts/gate-baseline.txt si green lo actualizó. Push solo si Rubén lo pide. Cada paso va en su propia rama y entra a main, que está protegida, por PR con squash. El título del PR sigue Conventional Commits, porque el squash lo usa como mensaje del commit en main.
 
 ## Revisores
 
@@ -37,8 +37,8 @@ Tres roles de construcción y tres revisores en Claude Code. Rubén aprueba plan
 
 - Todo commit cuyo diff toca algo que se ejecuta pasa por una revisión de corrección: backend/ (código, migraciones, tests y sondas de tests), frontend/, db/, compose.yaml, Dockerfile, configuración de nginx o PHP, .github/ y lockfiles (composer.lock, package-lock.json).
 - Quién la hace, una sola por commit:
-  - `code-reviewer` si el paso tiene lógica (ver Revisores). Corre en el paso 5 con los demás revisores y cuenta como la revisión antes del commit; no se corre /code-review encima.
-  - /code-review en el paso 7 si el diff toca algo que se ejecuta pero no tiene lógica: configuración, infraestructura, CI o lockfiles.
+  - `code-reviewer` si el paso tiene lógica (ver Revisores). Corre en el paso 5 con los demás revisores y cuenta como la revisión antes del commit.
+  - Si el diff toca algo que se ejecuta pero no tiene lógica (configuración, infraestructura, CI o lockfiles), la revisión son los checks de CI: actionlint, hadolint, docker compose config, composer audit, npm audit, la suite completa y las mutaciones SQL. Además `security-reviewer` cuando su lista lo pide (Dockerfile, compose, CI, dependencias nuevas). El paso no se cierra hasta ver en verde el CI del PR.
   - Diff mixto: `code-reviewer`, sobre todo el diff.
 - No corre ninguna cuando el diff es solo docs: docs/, CLAUDE.md, archivos .md y las definiciones de agentes en .claude/agents/.
 - No reemplaza a los revisores de seguridad y rendimiento: ellos revisan su tema contra las invariantes, la revisión de corrección busca bugs y tests que no prueban nada.
@@ -59,7 +59,7 @@ Tres roles de construcción y tres revisores en Claude Code. Rubén aprueba plan
 - Solo el arquitecto, con OK de Rubén: git commit y push, docker compose down -v, instalar dependencias (composer require, npm install), cambios de entorno (.env, volúmenes) y compose.yaml o un compose.override, porque deciden qué ejecuta el gate.
 - Context7: cada agente consulta la versión del lock antes de usar una API de librería e indica en una línea qué consultó. Si no está, lo dice y marca el código como no verificado.
 - Reporte final de cada agente: archivos tocados, comandos con su resultado, lo verificado y lo supuesto. Los revisores además: veredicto y hallazgos con severidad y evidencia.
-- Revisión: la hace el arquitecto, con los reportes de los revisores cuando el plan los pide, y la revisión de corrección antes del commit cuando el diff lo pide (`code-reviewer` o /code-review, ver su sección).
+- Revisión: la hace el arquitecto, con los reportes de los revisores cuando el plan los pide, y la revisión de corrección antes del commit cuando el diff lo pide (`code-reviewer` o los checks de CI, ver su sección).
 - Patrones: el plan y la especificación nombran en MAYÚSCULAS el patrón de cada pieza, por qué y la alternativa descartada, o dicen que no hace falta. El coder aplica solo los que pide la especificación y los nombra en su reporte. La revisión del arquitecto incluye buscar sobreingeniería: una abstracción sin un segundo caso real se quita.
 - Las restricciones por rol ya no son solo instrucción: las impone el hook [.claude/hooks/role_guard.py](../.claude/hooks/role_guard.py), un PreToolUse sobre Edit, Write, MultiEdit, NotebookEdit y Bash que decide por agent_type. Para tester y coder es una baranda contra errores (rutas y comandos prohibidos); para los revisores y cualquier otro subagente es barrera, por lista permitida. Cualquier agente con acceso a docker es root en los contenedores, así que el hook no es un sandbox (ver [decisiones.md](decisiones.md), Trade-offs). Si bloquea algo que el paso necesita, el agente se detiene y se lo pide al arquitecto.
 - Los revisores declaran `tools` como lista permitida (Read, Grep, Glob, Bash y Context7), igual que tester y coder: no heredan herramientas de red ni MCP de salida.
