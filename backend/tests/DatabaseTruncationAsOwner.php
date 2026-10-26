@@ -15,6 +15,7 @@ trait DatabaseTruncationAsOwner
     use DatabaseTruncation {
         migrateFreshUsing as laravelMigrateFreshUsing;
     }
+    use OwnerMigrationPaths;
 
     // Global catalogs seeded by migrations: truncating them would leave them empty for the rest of the suite.
     // Laravel adds the migrations table to this list on its own.
@@ -25,7 +26,7 @@ trait DatabaseTruncationAsOwner
         // With --path Laravel does not load migration paths registered by packages; if one needs them, add them here.
         return array_merge($this->laravelMigrateFreshUsing(), [
             '--database' => 'pgsql_owner',
-            '--path' => ['database/migrations', 'tests/database/migrations'],
+            '--path' => $this->ownerMigrationPaths(),
         ]);
     }
 

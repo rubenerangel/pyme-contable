@@ -45,6 +45,10 @@ jobs:
       - name: Pest
         run: docker compose run --rm -u www-data php vendor/bin/pest
 
+      # One migrate:fresh per mutation (about 30 s for 11 locally), so it runs on every push and PR.
+      - name: SQL mutations
+        run: python3 scripts/mutants.py
+
       - name: Postgres logs
         if: failure()
         run: docker compose logs postgres
@@ -85,7 +89,7 @@ jobs:
       - name: Hook tests
         run: python3 -m unittest discover -s .claude/hooks -v
 
-      - name: Gate tests
+      - name: Gate and mutation runner tests
         run: python3 -m unittest discover -s scripts -v
 
       - name: settings.json is valid JSON

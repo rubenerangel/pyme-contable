@@ -481,6 +481,7 @@ backend/tests/Integration/MunicipalityTest.php::it rejects a code that is not fi
 backend/tests/Integration/MunicipalityTest.php::it rejects a code that is not five digits with municipality_code_check (SQLSTATE 23514) with data set "dataset "six digits""
 backend/tests/Integration/MunicipalityTest.php::it rejects a duplicate code taken from the seed with municipality_code_key (UNIQUE, SQLSTATE 23505)
 backend/tests/Integration/MunicipalityTest.php::it rejects an explicit department_code because the column is generated (SQLSTATE 428C9)
+backend/tests/Integration/MutationAppliedTest.php::it migrates exactly the mutation named in MUTATION and no other
 backend/tests/Integration/PeriodLocksConcurrencyTest.php::it lets two lockForPosting of the same period live together without waiting
 backend/tests/Integration/PeriodLocksConcurrencyTest.php::it makes lockForClosing in B wait while A holds lockForPosting (SQLSTATE 55P03)
 backend/tests/Integration/PeriodLocksConcurrencyTest.php::it makes lockForPosting in B wait while A holds lockForClosing (SQLSTATE 55P03)
