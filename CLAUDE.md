@@ -11,6 +11,7 @@ Sistema contable por conceptos para pymes de construcción en Colombia. Laravel 
 - [docs/preguntas-contadora.md](docs/preguntas-contadora.md): criterio contable pendiente.
 - [docs/workflow.md](docs/workflow.md): flujo arquitecto, tester y coder con agentes.
 - [docs/glosario.md](docs/glosario.md): términos del dominio y su nombre en código.
+- [docs/normativa.md](docs/normativa.md): normas consultadas, fuente y si se verificaron.
 
 ## Invariantes (nunca se negocian)
 
