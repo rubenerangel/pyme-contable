@@ -15,6 +15,7 @@
 - docs/ en el repo es la fuente única de decisiones, estado, entorno y preguntas abiertas. Se versiona con el código y cada cambio de decisión queda en un commit.
 - El proyecto de claude.ai sincroniza docs/ y CLAUDE.md desde GitHub. No se mantienen copias editadas a mano en otro lugar.
 - Los cambios de criterio contable se registran en docs/preguntas-contadora.md hasta que la contadora responda, y luego pasan a docs/decisiones.md.
+- docs/normativa.md registra cada norma consultada con su fuente, fecha y estado (verificado, reportado o sin fuente). Es referencia, no criterio contable.
 
 ## Despliegue
 
@@ -75,7 +76,7 @@
 
 - Por empresa, con RLS, sin identidad global: una identidad compartida obliga a gobernar quién edita datos que ven varias empresas y expone qué terceros tiene cada una.
 - Clave única (company_id, id_type, id_number, country). DV calculado y validado, nunca digitado. Nombres y apellidos separados para personas naturales, razón social para jurídicas. Datos de contacto en tabla aparte, suprimible.
-- Tabla third_party (paso 4a del bloque 4): id_type es el código DIAN del tipo de documento con CHECK de forma (dos dígitos), sin lista cerrada porque cambia por año gravable; se cierra contra la resolución de exógena cuando se modele. Que 31 es NIT consta en la Resolución DIAN 15250 de 2006. Un NIT se guarda solo con dígitos, sin DV: el DV no se guarda y lo calculará el dominio con la API (no hay fuente oficial verificada del algoritmo, solo secundarias). country en ISO 3166-1 alfa-2, mapeado a la tabla de países de la DIAN con la exógena. person_type natural o legal, con CHECK de forma de los nombres. Sin atributos fiscales ni datos de contacto todavía.
+- Tabla third_party (paso 4a del bloque 4): id_type es el código DIAN del tipo de documento con CHECK de forma (dos dígitos), sin lista cerrada porque cambia por año gravable; se cierra contra la resolución de exógena cuando se modele. Que 31 es NIT lo reportan fuentes secundarias y el resultado de búsqueda de la Resolución DIAN 15250 de 2006, sin haber leído su texto (ver [normativa.md](normativa.md)). Un NIT se guarda solo con dígitos, sin DV: el DV no se guarda y lo calculará el dominio con la API (no hay fuente oficial verificada del algoritmo, solo secundarias). country en ISO 3166-1 alfa-2, mapeado a la tabla de países de la DIAN con la exógena. person_type natural o legal, con CHECK de forma de los nombres. Sin atributos fiscales ni datos de contacto todavía.
 - Los seudo-NIT de cuantías menores (222222222, tipo de documento 43) se generan al reportar; no son terceros. El consumidor final de facturación es un tercero único.
 - El documento guarda en jsonb la condición fiscal del tercero que usó la regla (responsabilidades del RUT, autorretenedor, gran contribuyente). Un cambio posterior del tercero no altera el pasado.
 
@@ -173,7 +174,7 @@ Dónde se hace cumplir cada regla:
 - Montos en NUMERIC en Postgres. En PHP nunca se opera con float: el cast decimal de Eloquent devuelve string y toda aritmética va con brick/math. Cuando se pueda, los totales se calculan en SQL.
 - Importes en NUMERIC(18,2). Tarifas y porcentajes con escala mayor, que se fija al modelar los parámetros.
 - El redondeo lo aplica la estrategia en el cálculo, no la presentación. El asiento guarda el valor realmente practicado y la contrapartida absorbe la diferencia, así el asiento cuadra. Lo que viene de un soporte (factura electrónica) se registra tal cual. Los prorrateos asignan el residuo para que la suma sea exacta. Si se redondea por línea o por documento está pendiente.
-- Reglas verificadas, a confirmar con la contadora: las declaraciones y los recibos de pago se aproximan al múltiplo de mil (ET, art. 577 y 802); las retenciones al peso (Decreto 2026 de 1983, art. 19, citado en el Concepto DIAN 65791 de 2013; confirmar su compilación en el DUR 1625 de 2016); el IVA cobrado puede aproximarse al múltiplo de 10 (DUR 1625 de 2016, art. 1.3.1.1.1, según el Oficio DIAN 3550 de 2026).
+- Reglas reportadas, sin leer el texto oficial (ver [normativa.md](normativa.md)) y a confirmar con la contadora: las declaraciones y los recibos de pago se aproximan al múltiplo de mil (ET, art. 577 y 802); las retenciones al peso (Decreto 2026 de 1983, art. 19, citado en el Concepto DIAN 65791 de 2013; confirmar su compilación en el DUR 1625 de 2016); el IVA cobrado puede aproximarse al múltiplo de 10 (DUR 1625 de 2016, art. 1.3.1.1.1, según el Oficio DIAN 3550 de 2026).
 - Redondear cada línea de un estado financiero rompe los totales: línea de ajuste por redondeo o totales calculados aparte.
 - La API envía montos como string. El frontend no hace aritmética contable con number de JavaScript: muestra y formatea, y la previsualización del asiento la calcula el backend.
 - Fecha contable como DATE derivada en America/Bogota, separada del timestamp de registro en UTC.
